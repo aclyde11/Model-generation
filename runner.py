@@ -36,7 +36,7 @@ def setup_server():
         else:
             print("got some weird data", data)
         if time.time() - ts > 100:
-            print("current counts", docked_count, param_count)
+            print("current counts", docked_count, param_count, time.time() - ts)
 
 def worker(df):
     struct = "input/"
@@ -75,10 +75,12 @@ def worker(df):
                         # print("Rank", rank, "running simulation")
                         escore = interface_functions.RunMMGBSA_(path,path)
                         # print("Rank", rank, "ran simulation and got", escore)
-        except subprocess.CalledProcessError:
-            print("Error")
-        except IndexError:
-            print("Error")
+        except subprocess.CalledProcessError as e:
+            print("Error rank", rank, e)
+        except IndexError as e:
+            print("Error rank", rank, e)
+        except RuntimeError as e:
+            print("Error rank", rank, e)
 
         
 
