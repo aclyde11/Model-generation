@@ -75,12 +75,15 @@ def worker(df):
                         # print("Rank", rank, "running simulation")
                         escore = interface_functions.RunMMGBSA_(path,path)
                         # print("Rank", rank, "ran simulation and got", escore)
+        except KeyboardInterrupt:
+            exit()
         except subprocess.CalledProcessError as e:
             print("Error rank", rank, e)
         except IndexError as e:
             print("Error rank", rank, e)
         except RuntimeError as e:
             print("Error rank", rank, e)
+
 
         
 
