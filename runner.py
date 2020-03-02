@@ -7,8 +7,6 @@ from impress_md import interface_functions
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
 
-
-
 def setup_server():
     status_ = MPI.Status()
     storage = {}
@@ -32,7 +30,6 @@ def setup_server():
             
 
 def worker(df):
-    
     struct = "input/"
 
     start_pos = rank * 100
@@ -79,7 +76,3 @@ if __name__ == '__main__':
         setup_server()
     else:
         worker(df)
-
-        
-
-    
