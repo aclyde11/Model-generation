@@ -4,6 +4,8 @@ import sys
 import policy
 from impress_md import interface_functions
 import time
+import subprocess
+
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
 
@@ -73,10 +75,11 @@ def worker(df):
                         # print("Rank", rank, "running simulation")
                         escore = interface_functions.RunMMGBSA_(path,path)
                         # print("Rank", rank, "ran simulation and got", escore)
-        except KeyboardInterrupt:
-            exit()
-        except:
-            print("error.")
+        except subprocess.CalledProcessError:
+            print("Error")
+        except IndexError:
+            print("Error")
+
         
 
 
