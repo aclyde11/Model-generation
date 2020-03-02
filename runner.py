@@ -41,11 +41,11 @@ def setup_server():
             print("current counts", docked_count, param_count, time.time() - ts_start)
 
 def worker(df):
+    size = comm.Get_size()
     struct = "input/"
     docker = interface_functions.get_receptr()
 
-    start_pos = rank * 100
-    for pos in range(start_pos, 100 + start_pos):
+    for pos in range(rank - 1, df.shape[0], size):
         try:
             path = "test" + str(pos)  + "/"
             smiles = df.iloc[pos,0]
