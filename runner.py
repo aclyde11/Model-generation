@@ -42,6 +42,7 @@ def setup_server():
 
 def worker(df):
     struct = "input/"
+    docker = interface_functions.get_receptr()
 
     start_pos = rank * 100
     for pos in range(start_pos, 100 + start_pos):
@@ -58,7 +59,7 @@ def worker(df):
             # pipeline
             if r:
                 print("Rank", rank, "running docking...")
-                score = interface_functions.RunDocking_(smiles,struct,path)
+                score = interface_functions.RunDocking_(smiles,struct,path, dock_obj=docker)
                 comm.send([smiles, score], dest=0, tag=11)
                 r = comm.recv(source=0, tag=11)
                 # print("Rank", rank, "should I run minimize, given the docking score", score, "?", "\t my model says", bool(r))

@@ -40,21 +40,27 @@ def RunDocking(smiles, inpath, outpath, padding=4):
     # oedepict.OEPrepareDepiction(lig)
     # oedepict.OERenderMolecule(f'{outpath}/lig.png',lig)
 
+def get_receptr():
+    from . import dock_conf
+    from openeye import oedocking
+    receptor = dock_conf.PrepareReceptorFromBinary('input/receptor.oeb')
+    dock = oedocking.OEDock()
+    dock.Initialize(receptor)
+    return dock
 
-def RunDocking_(smiles, inpath, outpath, padding=4, write=False):
+def RunDocking_(smiles, inpath, outpath, padding=4, write=False, dock_obj=None):
     from . import conf_gen
     from . import dock_conf
     if write and not os.path.exists(outpath):
         os.mkdir(outpath)
     confs = conf_gen.SelectEnantiomer(conf_gen.FromString(smiles))
     # This receptor can be pre-compiled to an oeb. It speeds things up
-    filename, file_extension = os.path.splitext(inpath)
+    # filename, file_extension = os.path.splitext(inpath)
     #if file_extension == ".oeb":
-    #    receptor = dock_conf.PrepareReceptorFromBinary(inpath)
     #else: # else it is a pdb
     #    receptor = dock_conf.PrepareReceptor(inpath,padding,outpath)
 
-    dock, lig, receptor = dock_conf.DockConf("input/receptor.oeb",confs,MAX_POSES=1)
+    dock, lig, receptor = dock_conf.DockConf("input/receptor.oeb",confs,MAX_POSES=1, dock=dock_obj)
 
     # Currently we generate 200 conformers for each ligand, but only take
     #   the best pose, as scored by Openeye. It may be useful to consider
