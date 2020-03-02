@@ -17,6 +17,7 @@ def setup_server():
     mmPolicy = policy.MinimizePolicy()
     print("Master setup server.")
     ts = time.time()
+    ts_start = ts
     docked_count = 0
     param_count = 0
     while True:
@@ -35,8 +36,9 @@ def setup_server():
             comm.send(int(res), dest=status_.Get_source(), tag=11)
         else:
             print("got some weird data", data)
-        if time.time() - ts > 100:
-            print("current counts", docked_count, param_count, time.time() - ts)
+        if time.time() - ts > 15:
+            ts = time.time()
+            print("current counts", docked_count, param_count, time.time() - ts_start)
 
 def worker(df):
     struct = "input/"
