@@ -88,7 +88,9 @@ def worker(df):
 
 if __name__ == '__main__':
     df = pd.read_csv(sys.argv[1], sep=' ')
-    
+    num_mols = df.shape[0]
+
+
     if rank == 0:
         setup_server()
     else:
