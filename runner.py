@@ -60,24 +60,24 @@ def worker(df):
             if r:
                 print("Rank", rank, "running docking...")
                 score = interface_functions.RunDocking_(smiles,struct,path, dock_obj=docker)
-                comm.send([smiles, score], dest=0, tag=11)
-                r = comm.recv(source=0, tag=11)
-                # print("Rank", rank, "should I run minimize, given the docking score", score, "?", "\t my model says", bool(r))
-
-                # pipeline
-                if r:
-                    # print("Rank", rank, "running param and mini")
-                    interface_functions.ParameterizeOE(path)
-                    mscore = interface_functions.RunMinimization_(path, path)
-
-
-                    comm.send([smiles, score, mscore], dest=0, tag=11)
-                    r = comm.recv(source=0, tag=11)
-                    # print("Rank", rank, "should I run mmgbsa for 1 ns given a energy minmization result of", mscore, "?\t my model says", bool(r))
-                    if r:
-                        # print("Rank", rank, "running simulation")
-                        escore = interface_functions.RunMMGBSA_(path,path)
-                        # print("Rank", rank, "ran simulation and got", escore)
+                # comm.send([smiles, score], dest=0, tag=11)
+                # r = comm.recv(source=0, tag=11)
+                # # print("Rank", rank, "should I run minimize, given the docking score", score, "?", "\t my model says", bool(r))
+                #
+                # # pipeline
+                # if r:
+                #     # print("Rank", rank, "running param and mini")
+                #     interface_functions.ParameterizeOE(path)
+                #     mscore = interface_functions.RunMinimization_(path, path)
+                #
+                #
+                #     comm.send([smiles, score, mscore], dest=0, tag=11)
+                #     r = comm.recv(source=0, tag=11)
+                #     # print("Rank", rank, "should I run mmgbsa for 1 ns given a energy minmization result of", mscore, "?\t my model says", bool(r))
+                #     if r:
+                #         # print("Rank", rank, "running simulation")
+                #         escore = interface_functions.RunMMGBSA_(path,path)
+                #         # print("Rank", rank, "ran simulation and got", escore)
         except KeyboardInterrupt:
             exit()
         except subprocess.CalledProcessError as e:
