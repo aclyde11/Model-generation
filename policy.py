@@ -26,7 +26,7 @@ class MinimizePolicy():
         if self.pos == 0:
             self.buffer_sat = True
         
-        return v
+        return False
         
 def mmgbsa_ns_policy(smile, dock_score, minimize_score):
     return False
