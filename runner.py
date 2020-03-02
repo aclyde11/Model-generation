@@ -52,10 +52,10 @@ def worker(df):
 
 
             # pipline
-            comm.send([smiles], dest=0, tag=11)
-            r = comm.recv(source=0, tag=11)
+            # comm.send([smiles], dest=0, tag=11)
+            # r = comm.recv(source=0, tag=11)
             # print("Rank", rank, "should I run docking on", smiles,"?", "\t my model says", bool(r))
-
+            r = True
             # pipeline
             if r:
                 print("Rank", rank, "running docking...")
