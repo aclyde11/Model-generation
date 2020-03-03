@@ -39,7 +39,7 @@ def setup_server():
             print("current counts", docked_count, param_count, time.time() - ts_start)
 
 
-def worker(df):
+def worker(df, path_root):
     size = comm.Get_size()
     struct = "input/"
     docker,recept = interface_functions.get_receptr()
@@ -51,7 +51,7 @@ def worker(df):
 
     for pos in range(rank - 1, df.shape[0], size - 1):
         try:
-            path = "test" + str(pos)  + "/"
+            path = path_root + str(pos)  + "/"
             smiles = df.iloc[pos,0]
             r = dock_policy(smiles)
             if r:
@@ -89,8 +89,9 @@ def worker(df):
 if __name__ == '__main__':
     df = pd.read_csv(sys.argv[1], sep=' ', header=None)
     num_mols = df.shape[0]
+    path_root = sys.argv[2]
 
     if rank == 0:
         setup_server()
     else:
-        worker(df)
+        worker(df, path_root)

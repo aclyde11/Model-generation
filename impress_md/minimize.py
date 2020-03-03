@@ -18,7 +18,6 @@ def MinimizedEnergy(filepath):
     integrator.setConstraintTolerance(0.00001)
     # TODO: This should just recognize whatever the computer is capable of, not force CUDA.
     platform = mm.Platform.getPlatformByName('CPU')
-    # TODO: I am not sure if mixed precision is necessary. It dramatically changes the results.
 
     simulation = app.Simulation(prmtop.topology, system, integrator, platform)
     simulation.context.setPositions(inpcrd.positions)
