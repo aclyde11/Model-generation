@@ -86,7 +86,7 @@ def worker(df):
             print("Error rank", rank, e)
 
 if __name__ == '__main__':
-    df = pd.read_csv(sys.argv[1], sep=' ')
+    df = pd.read_csv(sys.argv[1], sep=' ', header=None)
     num_mols = df.shape[0]
 
     if rank == 0:
