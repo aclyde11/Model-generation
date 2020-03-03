@@ -46,9 +46,9 @@ def get_receptr():
     receptor = dock_conf.PrepareReceptorFromBinary('input/receptor.oeb')
     dock = oedocking.OEDock(oedocking.OEScoreType_Chemgauss4, oedocking.OESearchResolution_Low)
     dock.Initialize(receptor)
-    return dock
+    return dock, receptor
 
-def RunDocking_(smiles, inpath, outpath, padding=4, write=False, dock_obj=None):
+def RunDocking_(smiles, inpath, outpath, padding=4, write=False, dock_obj=None, recept=None):
     from . import conf_gen
     from . import dock_conf
     if write and not os.path.exists(outpath):
@@ -61,6 +61,8 @@ def RunDocking_(smiles, inpath, outpath, padding=4, write=False, dock_obj=None):
     #    receptor = dock_conf.PrepareReceptor(inpath,padding,outpath)
 
     dock, lig, receptor = dock_conf.DockConf("input/receptor.oeb",confs,MAX_POSES=1, dock=dock_obj)
+    if receptor is None:
+        receptor = recept
 
     # Currently we generate 200 conformers for each ligand, but only take
     #   the best pose, as scored by Openeye. It may be useful to consider

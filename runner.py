@@ -43,7 +43,7 @@ def setup_server():
 def worker(df):
     size = comm.Get_size()
     struct = "input/"
-    docker = interface_functions.get_receptr()
+    docker,recept = interface_functions.get_receptr()
 
     for pos in range(rank - 1, df.shape[0], size - 1):
         try:
@@ -58,7 +58,7 @@ def worker(df):
             # pipeline
             if r:
                 print("Rank", rank, "running docking...")
-                score = interface_functions.RunDocking_(smiles,struct,path, dock_obj=None, write=True)
+                score = interface_functions.RunDocking_(smiles,struct,path, dock_obj=docker, write=True, recept=recept)
                 comm.send([smiles, score], dest=0, tag=11)
                 r = comm.recv(source=0, tag=11)
                 # print("Rank", rank, "should I run minimize, given the docking score", score, "?", "\t my model says", bool(r))
