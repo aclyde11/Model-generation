@@ -45,11 +45,10 @@ def worker(df):
     struct = "input/"
     docker = interface_functions.get_receptr()
 
-    for pos in range(rank - 1, df.shape[0], size):
+    for pos in range(rank - 1, df.shape[0], size - 1):
         try:
             path = "test" + str(pos)  + "/"
             smiles = df.iloc[pos,0]
-
 
             # pipline
             # comm.send([smiles], dest=0, tag=11)
@@ -59,21 +58,20 @@ def worker(df):
             # pipeline
             if r:
                 print("Rank", rank, "running docking...")
-                score = interface_functions.RunDocking_(smiles,struct,path, dock_obj=docker)
-                # comm.send([smiles, score], dest=0, tag=11)
-                # r = comm.recv(source=0, tag=11)
-                # # print("Rank", rank, "should I run minimize, given the docking score", score, "?", "\t my model says", bool(r))
-                #
+                score = interface_functions.RunDocking_(smiles,struct,path, dock_obj=None, write=True)
+                comm.send([smiles, score], dest=0, tag=11)
+                r = comm.recv(source=0, tag=11)
+                # print("Rank", rank, "should I run minimize, given the docking score", score, "?", "\t my model says", bool(r))
+                # r = True
                 # # pipeline
-                # if r:
-                #     # print("Rank", rank, "running param and mini")
-                #     interface_functions.ParameterizeOE(path)
-                #     mscore = interface_functions.RunMinimization_(path, path)
-                #
-                #
-                #     comm.send([smiles, score, mscore], dest=0, tag=11)
-                #     r = comm.recv(source=0, tag=11)
-                #     # print("Rank", rank, "should I run mmgbsa for 1 ns given a energy minmization result of", mscore, "?\t my model says", bool(r))
+                if r:
+                    # print("Rank", rank, "running param and mini")
+                    interface_functions.ParameterizeOE(path)
+                    mscore = interface_functions.RunMinimization_(path, path)
+
+                    # comm.send([smiles, score, mscore], dest=0, tag=11)
+                    # r = comm.recv(source=0, tag=11)
+                    # print("Rank", rank, "should I run mmgbsa for 1 ns given a energy minmization result of", mscore, "?\t my model says", bool(r))
                 #     if r:
                 #         # print("Rank", rank, "running simulation")
                 #         escore = interface_functions.RunMMGBSA_(path,path)
@@ -87,15 +85,9 @@ def worker(df):
         except RuntimeError as e:
             print("Error rank", rank, e)
 
-
-        
-
-
-
 if __name__ == '__main__':
     df = pd.read_csv(sys.argv[1], sep=' ')
     num_mols = df.shape[0]
-
 
     if rank == 0:
         setup_server()

@@ -68,8 +68,8 @@ def RunDocking_(smiles, inpath, outpath, padding=4, write=False, dock_obj=None):
 
     if write:
         with open(f'{outpath}/metrics.csv','w+') as metrics:
-            metrics.write("Dock,Dock_U\n")
-            metrics.write("{},{}\n".format(dock_conf.BestDockScore(dock,lig),0))
+            metrics.write("smiles,Dock,Dock_U\n")
+            metrics.write("{},{},{}\n".format(smiles,dock_conf.BestDockScore(dock,lig),0))
         dock_conf.WriteStructures(receptor, lig, f'{outpath}/apo.pdb', f'{outpath}/lig.pdb')
     # # If you uncomment the three lines below, it will save an image of the 2D
     #   molecule. This is useful as a sanity check.
@@ -177,8 +177,8 @@ def RunMinimization_(build_path, outpath, one_traj=False):
     from . import minimize
     success = True
     try:
-        rec_energy = minimize.MinimizedEnergy(f'{build_path}/apo')
         lig_energy = minimize.MinimizedEnergy(f'{build_path}/lig')
+        rec_energy = minimize.MinimizedEnergy(f'{build_path}/apo')
         com_energy = minimize.MinimizedEnergy(f'{build_path}/com')
         diff_energy = com_energy - lig_energy - rec_energy
     except:

@@ -18,15 +18,14 @@ class MinimizePolicy():
         v = True
 
         if self.buffer_sat:
-            print("cur buf", np.quantile(self.buffer, 0.1))
             v =  dockscore <= np.quantile(self.buffer, 0.1)
 
         self.buffer[self.pos] = dockscore
         self.pos = (self.pos + 1) % 10
         if self.pos == 0:
             self.buffer_sat = True
-        
-        return False
-        
+
+        return v
+
 def mmgbsa_ns_policy(smile, dock_score, minimize_score):
     return False
