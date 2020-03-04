@@ -133,9 +133,11 @@ if __name__ == '__main__':
     num_mols = df.shape[0]
     path_root = args.path
 
-    from shutil import copyfile
-
-    copyfile(args.receptor_file, 'input/receptor.oeb')
+    from shutil import copyfile, SameFileError
+    try:
+        copyfile(args.receptor_file, 'input/receptor.oeb')
+    except SameFileError:
+        pass
 
     if not os.path.exists(path_root):
         os.mkdir(path_root)
