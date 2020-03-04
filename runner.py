@@ -12,12 +12,13 @@ comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
 
 def collate(file):
+    print("loadintg data")
     ranks = {}
     for i in range(comm.Get_size() - 2):
         ranks[i + 2] = []
 
     df = pd.read_csv(file, sep=' ', header=None)
-
+    print("done")
     assigner = 0
     for pos in range(df.shape[0]):
         pos, smile, name = pos, df.iloc[pos,0], df.iloc[pos,1]
@@ -26,6 +27,7 @@ def collate(file):
         assigner = assigner % (comm.Get_size() - 2)
 
     for k, v in ranks.items():
+        print("Sending data")
         comm.send(v, dest=k, tag=11)
 
 
@@ -46,6 +48,7 @@ def setup_server():
         while True:
             data = comm.recv(source=MPI.ANY_SOURCE, tag=MPI.ANY_TAG, status=status_)
             for line in data:
+                print("wrote")
                 f.write(line)
 
             if time.time() - ts > 15:
