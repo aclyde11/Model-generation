@@ -44,21 +44,16 @@ def get_receptr():
     from . import dock_conf
     from openeye import oedocking
     receptor = dock_conf.PrepareReceptorFromBinary('input/receptor.oeb')
-    dock = oedocking.OEDock(oedocking.OEScoreType_Chemgauss4, oedocking.OESearchResolution_Low)
+    dock = oedocking.OEDock(oedocking.OEScoreType_Chemgauss4, oedocking.OESearchResolution_Standard)
     dock.Initialize(receptor)
     return dock, receptor
 
-def RunDocking_(smiles, inpath, outpath, padding=4, write=False, dock_obj=None, recept=None):
+def RunDocking_(smiles, inpath, outpath, padding=4, write=False, dock_obj=None, recept=None,name='UNK'):
     from . import conf_gen
     from . import dock_conf
     if write and not os.path.exists(outpath):
         os.mkdir(outpath)
     confs = conf_gen.SelectEnantiomer(conf_gen.FromString(smiles))
-    # This receptor can be pre-compiled to an oeb. It speeds things up
-    # filename, file_extension = os.path.splitext(inpath)
-    #if file_extension == ".oeb":
-    #else: # else it is a pdb
-    #    receptor = dock_conf.PrepareReceptor(inpath,padding,outpath)
 
     dock, lig, receptor = dock_conf.DockConf("input/receptor.oeb",confs,MAX_POSES=1, dock=dock_obj)
     if receptor is None:
@@ -70,8 +65,8 @@ def RunDocking_(smiles, inpath, outpath, padding=4, write=False, dock_obj=None, 
 
     if write:
         with open(f'{outpath}/metrics.csv','w+') as metrics:
-            metrics.write("smiles,Dock,Dock_U\n")
-            metrics.write("{},{},{}\n".format(smiles,dock_conf.BestDockScore(dock,lig),0))
+            metrics.write("name,smiles,Dock,Dock_U\n")
+            metrics.write("{},{},{},{}\n".format(name,smiles,dock_conf.BestDockScore(dock,lig),0))
         dock_conf.WriteStructures(receptor, lig, f'{outpath}/apo.pdb', f'{outpath}/lig.pdb')
     # # If you uncomment the three lines below, it will save an image of the 2D
     #   molecule. This is useful as a sanity check.

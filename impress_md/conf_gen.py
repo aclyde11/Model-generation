@@ -10,7 +10,7 @@ def FromMol(mol, isomer=True, num_enantiomers=1):
         num_enantiomers is the allowable number of enantiomers. For all, set to -1
     """
     omegaOpts = oeomega.OEOmegaOptions()
-    omegaOpts.SetMaxConfs(50)
+    omegaOpts.SetMaxConfs(25)
     omega = oeomega.OEOmega(omegaOpts)
     out_conf = []
     
@@ -22,7 +22,7 @@ def FromMol(mol, isomer=True, num_enantiomers=1):
             oechem.OEThrow.Warning("%s: %s" % (mol.GetTitle(), oeomega.OEGetOmegaError(ret_code)))
     
     elif isomer:
-        for enantiomer in oeomega.OEFlipper(mol.GetActive(),12,True):
+        for enantiomer in oeomega.OEFlipper(mol.GetActive(),6,True):
             enantiomer = oechem.OEMol(enantiomer)
             ret_code = omega.Build(enantiomer)
             if ret_code == oeomega.OEOmegaReturnCode_Success:
