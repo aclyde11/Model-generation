@@ -86,7 +86,7 @@ def worker(df, path_root):
 
                 if r:
                     interface_functions.ParameterizeOE(path)
-                    mscore = interface_functions.RunMinimization_(path, path)
+                    # mscore = interface_functions.RunMinimization_(path, path)
                     mols_minimzed += 1
                     # comm.send([smiles, score, mscore], dest=0, tag=11)
                     # r = comm.recv(source=0, tag=11)
