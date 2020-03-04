@@ -1,4 +1,6 @@
 import pandas as pd
+import os
+os.environ['OPENMM_CPU_THREADS'] = '1'
 import sys
 import policy
 from impress_md import interface_functions
@@ -14,7 +16,7 @@ start = time.time()
 for pos in range(0, 5):
     path = "test" + str(pos)  + "/"
     smiles = df.iloc[pos,0]
-    score = interface_functions.RunDocking_(smiles,struct,path, dock_obj=docker, recept=recept)
+    score = interface_functions.RunDocking_(smiles,struct,path, dock_obj=docker, recept=recept, write=True)
     interface_functions.ParameterizeOE(path)
     mscore = interface_functions.RunMinimization_(path, path)
 print(time.time() - start)

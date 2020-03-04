@@ -1,3 +1,5 @@
+import os
+os.environ['OPENMM_CPU_THREADS'] = '1'
 from mpi4py import MPI
 import pandas as pd
 import sys
@@ -8,6 +10,22 @@ import subprocess
 
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
+
+def collate(path):
+    import os, time
+    path_to_watch = path
+    before = {}
+    while 1:
+        time.sleep(60)
+        for f in os.listdir(path_to_watch):
+            if f not in before and os.path.exists(f + "/done.txt"):
+                df = pd.read_csv(f + "/metrics.csv")
+                before[f] = df
+        try:
+            pd.concat(before.values()).to_csv("out.csv")
+        except ValueError:
+            pass
+
 
 def setup_server():
     status_ = MPI.Status()
@@ -49,13 +67,13 @@ def worker(df, path_root):
     mols_docked = 0
     mols_minimzed = 0
 
-    for pos in range(rank - 1, df.shape[0], size - 1):
+    for pos in range(rank - 2, df.shape[0], size - 2):
+        path = path_root + str(pos) + "/"
         try:
-            path = path_root + str(pos)  + "/"
             smiles = df.iloc[pos,0]
             r = dock_policy(smiles)
             if r:
-                print("Rank", rank, "running docking...")
+                print("Rank", rank, pos, "running docking...")
                 score = interface_functions.RunDocking_(smiles,struct,path, dock_obj=docker, write=True, recept=recept)
                 mols_docked += 1
 
@@ -73,10 +91,8 @@ def worker(df, path_root):
                     # comm.send([smiles, score, mscore], dest=0, tag=11)
                     # r = comm.recv(source=0, tag=11)
                     # print("Rank", rank, "should I run mmgbsa for 1 ns given a energy minmization result of", mscore, "?\t my model says", bool(r))
-                #     if r:
-                #         # print("Rank", rank, "running simulation")
-                #         escore = interface_functions.RunMMGBSA_(path,path)
-                #         # print("Rank", rank, "ran simulation and got", escore)
+                    if r:
+                        escore = interface_functions.RunMMGBSA_(path,path)
         except KeyboardInterrupt:
             exit()
         except subprocess.CalledProcessError as e:
@@ -85,13 +101,22 @@ def worker(df, path_root):
             print("Error rank", rank, e)
         except RuntimeError as e:
             print("Error rank", rank, e)
+        with open(path + "done.txt", 'w') as f:
+            f.write("t")
+
 
 if __name__ == '__main__':
+    import os
     df = pd.read_csv(sys.argv[1], sep=' ', header=None)
     num_mols = df.shape[0]
     path_root = sys.argv[2]
 
+    if not os.path.exists(path_root):
+        os.mkdir(path_root)
+
     if rank == 0:
         setup_server()
+    elif rank == 1:
+        collate(path_root)
     else:
-        worker(df, path_root)
+        worker(df, path_root + "/rank")
