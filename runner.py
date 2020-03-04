@@ -30,6 +30,7 @@ def setup_server():
     docked_count = 0
     param_count = 0
     with open('out_test.csv', 'w', buffering=1) as f:
+        f.write("name,smiles,Dock,Dock_U,dbase,target\n")
         while True:
             data = comm.recv(source=MPI.ANY_SOURCE, tag=MPI.ANY_TAG, status=status_)
             for line in data:

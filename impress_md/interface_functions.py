@@ -67,10 +67,10 @@ def CanSmi(mol, isomeric, kekule):
     smi = oechem.OECreateSmiString(mol, smiflag)
     return smi
 
-def RunDocking_(smiles, inpath, outpath, dbase_name, target_name, padding=4, write=False, dock_obj=None, recept=None,name='UNK'):
+def RunDocking_(smiles, inpath, outpath, dbase_name, target_name, padding=4, write=False, dock_obj=None, recept=None,name='UNK', docking_only=False):
     from . import conf_gen
     from . import dock_conf
-    if write and not os.path.exists(outpath):
+    if write and not os.path.exists(outpath) and not docking_only:
         os.mkdir(outpath)
     confs = conf_gen.SelectEnantiomer(conf_gen.FromString(smiles))
 
@@ -83,11 +83,12 @@ def RunDocking_(smiles, inpath, outpath, dbase_name, target_name, padding=4, wri
     #   something about the range of poses.
 
     if write:
-        with open(f'{outpath}/metrics.csv','w+') as metrics:
-            metrics.write("name,smiles,Dock,Dock_U,dbase,target\n")
-            res = "{},{},{},{}\n".format(name,smiles,dock_conf.BestDockScore(dock,lig),0, dbase_name, target_name)
-            metrics.write(res)
-        dock_conf.WriteStructures(receptor, lig, f'{outpath}/apo.pdb', f'{outpath}/lig.pdb')
+        res = "{},{},{},{},{},{}\n".format(name, smiles, dock_conf.BestDockScore(dock, lig), 0, dbase_name, target_name)
+        if not docking_only:
+            with open(f'{outpath}/metrics.csv','w+') as metrics:
+                metrics.write("name,smiles,Dock,Dock_U,dbase,target\n")
+                metrics.write(res)
+            dock_conf.WriteStructures(receptor, lig, f'{outpath}/apo.pdb', f'{outpath}/lig.pdb')
     else:
         res = None
     # # If you uncomment the three lines below, it will save an image of the 2D
