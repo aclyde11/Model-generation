@@ -11,10 +11,22 @@ import subprocess
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
 
-def collate(path, dbase_name, target_name):
-    import os, time
-    while True:
-        time.sleep(100)
+def collate(file):
+    ranks = {}
+    for i in range(comm.Get_size() - 2):
+        ranks[i + 2] = []
+
+    df = pd.read_csv(file, sep=' ', header=None)
+
+    assigner = 0
+    for pos in range(df.shape[0]):
+        pos, smile, name = pos, df.iloc[pos,0], df.iloc[pos,1]
+        ranks[assigner + 2].append((pos, smile, name))
+        assigner += 1
+        assigner = assigner % (comm.Get_size() - 2)
+
+    for k, v in ranks.items():
+        comm.send(v, dest=k, tag=11)
 
 
 
@@ -41,9 +53,9 @@ def setup_server():
                 # print("current counts", docked_count, param_count, time.time() - ts_start)
 
 
-def worker(df, path_root, dbase_name, target_name, docking_only=False, receptor_file=None):
+def worker(path_root, dbase_name, target_name, docking_only=False, receptor_file=None):
     size = comm.Get_size()
-
+    data = comm.recv(tag=11)
     struct = "input/"
     docker,recept = interface_functions.get_receptr()
 
@@ -54,15 +66,15 @@ def worker(df, path_root, dbase_name, target_name, docking_only=False, receptor_
 
     buffer = []
 
-    for pos in range(rank - 2, df.shape[0], size - 2):
+    for pos in data:
+        pos, smiles, name = pos
         path = path_root + str(pos) + "/"
         try:
-            smiles = df.iloc[pos,0]
-            name = df.iloc[pos, 1]
+
             r = dock_policy(smiles)
             if r:
                 # print("Rank", rank, pos, "running docking...")
-                score, res = interface_functions.RunDocking_(smiles,struct,path, dbase_name, target_name, dock_obj=docker, write=True, recept=recept, name=name)
+                score, res = interface_functions.RunDocking_(smiles,struct,path, dbase_name, target_name, dock_obj=docker, write=True, recept=recept, name=name, docking_only=docking_only)
                 mols_docked += 1
 
                 if docking_only:
@@ -114,8 +126,7 @@ def get_args():
 if __name__ == '__main__':
     import os
     args = get_args()
-    df = pd.read_csv(args.smiles, sep=' ', header=None)
-    num_mols = df.shape[0]
+
     path_root = args.path
 
     from shutil import copyfile, SameFileError
@@ -130,6 +141,6 @@ if __name__ == '__main__':
     if rank == 0:
         setup_server()
     elif rank == 1:
-        collate(path_root, args.dbase_name, args.target_name)
+        collate(args.smiles)
     else:
-        worker(df, path_root + "/rank", args.dbase_name, args.target_name, docking_only=args.dock_only, receptor_file=args.receptor_file)
+        worker(path_root + "/rank", args.dbase_name, args.target_name, docking_only=args.dock_only, receptor_file=args.receptor_file)
