@@ -66,8 +66,9 @@ def setup_server():
             # print("current counts", docked_count, param_count, time.time() - ts_start)
 
 
-def worker(df, path_root, docking_only=False):
+def worker(df, path_root, docking_only=False, receptor_file=None):
     size = comm.Get_size()
+
     struct = "input/"
     docker,recept = interface_functions.get_receptr()
 
@@ -122,6 +123,7 @@ def get_args():
     parser.add_argument('--path', type=str, required=True)
     parser.add_argument('--target_name', type=str, required=True)
     parser.add_argument('--dbase_name', type=str, required=True)
+    parser.add_argument('--receptor_file', type=str, required=True)
     return parser.parse_args()
 
 if __name__ == '__main__':
@@ -131,6 +133,10 @@ if __name__ == '__main__':
     num_mols = df.shape[0]
     path_root = args.path
 
+    from shutil import copyfile
+
+    copyfile(args.receptor_file, 'input/receptor.oeb')
+
     if not os.path.exists(path_root):
         os.mkdir(path_root)
 
@@ -139,4 +145,4 @@ if __name__ == '__main__':
     elif rank == 1:
         collate(path_root, args.dbase_name, args.target_name)
     else:
-        worker(df, path_root + "/rank", docking_only=args.dock_only)
+        worker(df, path_root + "/rank", docking_only=args.dock_only, receptor_file=args.receptor_file)
