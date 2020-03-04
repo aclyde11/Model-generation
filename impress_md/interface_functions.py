@@ -1,5 +1,6 @@
 import sys, os
 import numpy as np
+from openeye import oechem
 from contextlib import contextmanager
 
 @contextmanager
@@ -48,7 +49,25 @@ def get_receptr():
     dock.Initialize(receptor)
     return dock, receptor
 
-def RunDocking_(smiles, inpath, outpath, padding=4, write=False, dock_obj=None, recept=None,name='UNK'):
+def CanSmi(mol, isomeric, kekule):
+    oechem.OEFindRingAtomsAndBonds(mol)
+    oechem.OEAssignAromaticFlags(mol, oechem.OEAroModel_OpenEye)
+    smiflag = oechem.OESMILESFlag_Canonical
+    if isomeric:
+        smiflag |= oechem.OESMILESFlag_ISOMERIC
+
+    if kekule:
+        for bond in mol.GetBonds(oechem.OEIsAromaticBond()):
+            bond.SetIntType(5)
+        oechem.OECanonicalOrderAtoms(mol)
+        oechem.OECanonicalOrderBonds(mol)
+        oechem.OEClearAromaticFlags(mol)
+        oechem.OEKekulize(mol)
+
+    smi = oechem.OECreateSmiString(mol, smiflag)
+    return smi
+
+def RunDocking_(smiles, inpath, outpath, dbase_name, target_name, padding=4, write=False, dock_obj=None, recept=None,name='UNK'):
     from . import conf_gen
     from . import dock_conf
     if write and not os.path.exists(outpath):
@@ -65,15 +84,18 @@ def RunDocking_(smiles, inpath, outpath, padding=4, write=False, dock_obj=None, 
 
     if write:
         with open(f'{outpath}/metrics.csv','w+') as metrics:
-            metrics.write("name,smiles,Dock,Dock_U\n")
-            metrics.write("{},{},{},{}\n".format(name,smiles,dock_conf.BestDockScore(dock,lig),0))
+            metrics.write("name,smiles,Dock,Dock_U,dbase,target\n")
+            res = "{},{},{},{}\n".format(name,smiles,dock_conf.BestDockScore(dock,lig),0, dbase_name, target_name)
+            metrics.write(res)
         dock_conf.WriteStructures(receptor, lig, f'{outpath}/apo.pdb', f'{outpath}/lig.pdb')
+    else:
+        res = None
     # # If you uncomment the three lines below, it will save an image of the 2D
     #   molecule. This is useful as a sanity check.
     # from openeye import oedepict
     # oedepict.OEPrepareDepiction(lig)
     # oedepict.OERenderMolecule(f'{outpath}/lig.png',lig)
-    return dock_conf.BestDockScore(dock,lig)
+    return dock_conf.BestDockScore(dock,lig), res
 
 def ParameterizeOE(path):
     """

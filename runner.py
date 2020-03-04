@@ -13,25 +13,8 @@ rank = comm.Get_rank()
 
 def collate(path, dbase_name, target_name):
     import os, time
-    path_to_watch = path
-    before = {}
-    while 1:
-        time.sleep(10)
-        for f in os.listdir(path_to_watch):
-            if f not in before and os.path.exists(path +"/" + f + "/done.txt"):
-                try:
-                    df = pd.read_csv(path +"/" +f + "/metrics.csv")
-                    before[f] = df
-                except FileNotFoundError:
-                    pass
-        try:
-            ds = pd.concat(list(before.values()))
-            ds['target'] = target_name
-            ds['dbase'] = dbase_name
-            ds.to_csv("out.csv")
-            print("TOTAL", ds.shape)
-        except ValueError:
-            pass
+    while True:
+        time.sleep(100)
 
 
 
@@ -46,27 +29,18 @@ def setup_server():
 
     docked_count = 0
     param_count = 0
-    while True:
-        data = comm.recv(source=MPI.ANY_SOURCE, tag=MPI.ANY_TAG, status=status_)
-        if len(data) == 1: #pipeline 1
-            dtype = data.pop(0)
-            if dtype == 'dock':
-                r = dockPolicy(data[0])
-                comm.send(r, dest=status_.Get_source(), tag=11)
-            elif dtype == 'min': #pipeline 2
-                r = mmPolicy(data[0])
-                comm.send(r, dest=status_.Get_source(), tag=11)
-            elif dtype == 'mmgbsa': #pipline 3
-                pass
-        else:
-            pass
-            # print("got some weird data", data)
-        if time.time() - ts > 15:
-            ts = time.time()
-            # print("current counts", docked_count, param_count, time.time() - ts_start)
+    with open('out_test.csv', 'w', buffering=1) as f:
+        while True:
+            data = comm.recv(source=MPI.ANY_SOURCE, tag=MPI.ANY_TAG, status=status_)
+            for line in data:
+                f.write(line)
+
+            if time.time() - ts > 15:
+                ts = time.time()
+                # print("current counts", docked_count, param_count, time.time() - ts_start)
 
 
-def worker(df, path_root, docking_only=False, receptor_file=None):
+def worker(df, path_root, dbase_name, target_name, docking_only=False, receptor_file=None):
     size = comm.Get_size()
 
     struct = "input/"
@@ -77,6 +51,8 @@ def worker(df, path_root, docking_only=False, receptor_file=None):
     mols_docked = 0
     mols_minimzed = 0
 
+    buffer = []
+
     for pos in range(rank - 2, df.shape[0], size - 2):
         path = path_root + str(pos) + "/"
         try:
@@ -85,8 +61,16 @@ def worker(df, path_root, docking_only=False, receptor_file=None):
             r = dock_policy(smiles)
             if r:
                 # print("Rank", rank, pos, "running docking...")
-                score = interface_functions.RunDocking_(smiles,struct,path, dock_obj=docker, write=True, recept=recept, name=name)
+                score, res = interface_functions.RunDocking_(smiles,struct,path, dbase_name, target_name, dock_obj=docker, write=True, recept=recept, name=name)
                 mols_docked += 1
+
+                if docking_only:
+                    if res is not None:
+                        buffer.append(res)
+                    if len(buffer) > 5:
+                        comm.send(buffer, dest=0, tag=11)
+                        buffer = []
+
 
                 if not docking_only:
                     if mols_docked % 1000 == 0:
@@ -147,4 +131,4 @@ if __name__ == '__main__':
     elif rank == 1:
         collate(path_root, args.dbase_name, args.target_name)
     else:
-        worker(df, path_root + "/rank", docking_only=args.dock_only, receptor_file=args.receptor_file)
+        worker(df, path_root + "/rank", args.dbase_name, args.target_name, docking_only=args.dock_only, receptor_file=args.receptor_file)
