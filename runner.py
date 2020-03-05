@@ -20,12 +20,16 @@ def collate(file):
     df = pd.read_csv(file, sep=' ', header=None)
     print("done")
     assigner = 0
+
+    print("Assigning")
     for pos in range(df.shape[0]):
         pos, smile, name = pos, df.iloc[pos,0], df.iloc[pos,1]
         ranks[assigner + 2].append((pos, smile, name))
         assigner += 1
         assigner = assigner % (comm.Get_size() - 2)
-
+        if pos % 1000 == 0:
+            print(pos)
+    del df
     for k, v in ranks.items():
         print("Sending data")
         comm.send(v, dest=k, tag=11)
@@ -35,14 +39,8 @@ def collate(file):
 def setup_server():
     status_ = MPI.Status()
 
-    dockPolicy = policy.MasterDockPolicy()
-    mmPolicy = policy.MasterMinimizePolicy()
-    # print("Master setup server.")
     ts = time.time()
-    ts_start = ts
 
-    docked_count = 0
-    param_count = 0
     with open('out_test.csv', 'w', buffering=1) as f:
         f.write("name,smiles,Dock,Dock_U,dbase,target\n")
         while True:
@@ -50,11 +48,6 @@ def setup_server():
             for line in data:
                 print("wrote")
                 f.write(line)
-
-            if time.time() - ts > 15:
-                ts = time.time()
-                # print("current counts", docked_count, param_count, time.time() - ts_start)
-
 
 def worker(path_root, dbase_name, target_name, docking_only=False, receptor_file=None):
     size = comm.Get_size()
