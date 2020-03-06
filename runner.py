@@ -87,18 +87,18 @@ def worker(path_root, dbase_name, target_name, docking_only=False, receptor_file
         for pos in data:
             pos, smiles, name = pos
 
-            try:
-                mol = Chem.MolFromSmiles(smiles)
-                if mol is None:
-                    print("passing on mol", smiles)
-                    continue
-                else:
-                    if mol.GetNumAtoms() < 12 or Descriptors.MolWt(mol) > 500:
-                        print("passing on mol", smiles)
-                        continue
-            except:
-                print("passing on mol", smiles)
-                continue
+            # try:
+            #     mol = Chem.MolFromSmiles(smiles)
+            #     if mol is None:
+            #         print("passing on mol", smiles)
+            #         continue
+            #     else:
+            #         if mol.GetNumAtoms() < 12 or Descriptors.MolWt(mol) > 500:
+            #             print("passing on mol", smiles)
+            #             continue
+            # except:
+            #     print("passing on mol", smiles)
+            #     continue
 
             path = path_root + str(pos) + "/"
             try:
