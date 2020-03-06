@@ -18,8 +18,6 @@ def collate(file):
     for i in range(comm.Get_size() - 2):
         ranks[i + 2] = []
 
-    df = pd.read_csv(file, sep=' ', header=None, low_memory=False, engine='c', )
-    print("done")
     assigner = 0
 
     print("Assigning")
@@ -35,19 +33,18 @@ def collate(file):
             if pos % 10000 == 0:
                 print(pos)
 
-    del df
     for k, v in ranks.items():
         print("Sending data")
         comm.send(v, dest=k, tag=11)
 
 
 
-def setup_server():
+def setup_server(name):
     status_ = MPI.Status()
 
     ts = time.time()
 
-    with open('out_test.csv', 'w', buffering=1) as f:
+    with open(name, 'w', buffering=1) as f:
         f.write("name,smiles,Dock,Dock_U,dbase,target\n")
         while True:
             data = comm.recv(source=MPI.ANY_SOURCE, tag=MPI.ANY_TAG, status=status_)
@@ -134,7 +131,7 @@ if __name__ == '__main__':
     if rank == 0:
         if not os.path.exists(path_root):
             os.mkdir(path_root)
-        setup_server()
+        setup_server(args.path + "_" + args.target_name + "_" + args.dbase_name + "_output.csv")
     elif rank == 1:
         collate(args.smiles)
     else:
