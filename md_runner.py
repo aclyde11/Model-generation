@@ -53,7 +53,7 @@ def worker(df, path_root, dbase_name, target_name, docking_only=False, receptor_
         try:
             score, res = interface_functions.RunDocking_(smiles,struct,path, dbase_name, target_name, dock_obj=docker, write=True, recept=recept, receptor_file=receptor_file, name=name, docking_only=False)
             interface_functions.ParameterizeOE(path)
-            mscore = interface_functions.RunMinimization_(path, path)
+            mscore = interface_functions.RunMinimization_(path, path, write=True)
             escore = interface_functions.RunMMGBSA_(path, path)
         except KeyboardInterrupt:
             exit()
