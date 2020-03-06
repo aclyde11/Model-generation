@@ -53,7 +53,7 @@ def worker(path_root, dbase_name, target_name, docking_only=False, receptor_file
     size = comm.Get_size()
     data = comm.recv(tag=11)
     struct = "input/"
-    docker,recept = interface_functions.get_receptr()
+    docker,recept = interface_functions.get_receptr(receptor_file=receptor_file)
 
     dock_policy, min_policy = policy.DockPolicy(), policy.MinimizePolicy()
 
@@ -70,7 +70,7 @@ def worker(path_root, dbase_name, target_name, docking_only=False, receptor_file
             r = dock_policy(smiles)
             if r:
                 # print("Rank", rank, pos, "running docking...")
-                score, res = interface_functions.RunDocking_(smiles,struct,path, dbase_name, target_name, dock_obj=docker, write=True, recept=recept, name=name, docking_only=docking_only)
+                score, res = interface_functions.RunDocking_(smiles,struct,path, dbase_name, target_name, dock_obj=docker, write=True, recept=recept, receptor_file=receptor_file, name=name, docking_only=docking_only)
                 mols_docked += 1
 
                 if docking_only:
@@ -125,16 +125,9 @@ if __name__ == '__main__':
 
     path_root = args.path
 
-    from shutil import copyfile, SameFileError
-    try:
-        copyfile(args.receptor_file, 'input/receptor.oeb')
-    except SameFileError:
-        pass
-
-    if not os.path.exists(path_root):
-        os.mkdir(path_root)
-
     if rank == 0:
+        if not os.path.exists(path_root):
+            os.mkdir(path_root)
         setup_server()
     elif rank == 1:
         collate(args.smiles)

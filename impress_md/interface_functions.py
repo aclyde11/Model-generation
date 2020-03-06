@@ -41,10 +41,10 @@ def RunDocking(smiles, inpath, outpath, padding=4):
     # oedepict.OEPrepareDepiction(lig)
     # oedepict.OERenderMolecule(f'{outpath}/lig.png',lig)
 
-def get_receptr():
+def get_receptr(receptor_file=None):
     from . import dock_conf
     from openeye import oedocking
-    receptor = dock_conf.PrepareReceptorFromBinary('input/receptor.oeb')
+    receptor = dock_conf.PrepareReceptorFromBinary(receptor_file)
     dock = oedocking.OEDock(oedocking.OEScoreType_Chemgauss4, oedocking.OESearchResolution_Standard)
     dock.Initialize(receptor)
     return dock, receptor
@@ -67,14 +67,14 @@ def CanSmi(mol, isomeric, kekule):
     smi = oechem.OECreateSmiString(mol, smiflag)
     return smi
 
-def RunDocking_(smiles, inpath, outpath, dbase_name, target_name, padding=4, write=False, dock_obj=None, recept=None,name='UNK', docking_only=False):
+def RunDocking_(smiles, inpath, outpath, dbase_name, target_name, padding=4, receptor_file=None, write=False, dock_obj=None, recept=None,name='UNK', docking_only=False):
     from . import conf_gen
     from . import dock_conf
     if write and not os.path.exists(outpath) and not docking_only:
         os.mkdir(outpath)
     confs = conf_gen.SelectEnantiomer(conf_gen.FromString(smiles))
 
-    dock, lig, receptor = dock_conf.DockConf("input/receptor.oeb",confs,MAX_POSES=1, dock=dock_obj)
+    dock, lig, receptor = dock_conf.DockConf(receptor_file,confs,MAX_POSES=1, dock=dock_obj)
     if receptor is None:
         receptor = recept
 
