@@ -12,30 +12,55 @@ import subprocess
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
 
-def collate(file):
+def collate(file, chunk=50):
+    status_ = MPI.Status()
+
     print("loadintg data")
     ranks = {}
     for i in range(comm.Get_size() - 2):
+        _ = comm.recv(source=MPI.ANY_SOURCE, tag=MPI.ANY_TAG, status=status_)
         ranks[i + 2] = []
-
+    print("Found everyone and said hi.")
     assigner = 0
 
     print("Assigning")
     with open(file, 'r') as f:
+        size = comm.Get_size() - 2
+        #init phase
         for pos, line in (enumerate(f)):
             spl = line.split(' ')
             if len(spl) != 2:
                 continue
-            smile, name = spl[0], spl[1]
+            smile, name = spl[0].strip(), spl[1].strip()
             ranks[assigner + 2].append((pos, smile, name))
             assigner += 1
             assigner = assigner % (comm.Get_size() - 2)
-            if pos % 1000000 == 0:
+            if pos != 0 and pos % (size * chunk) == 0:
                 print(pos)
+                break
 
-    for k, v in ranks.items():
-        print("Sending data")
-        comm.send(v, dest=k, tag=11)
+        for k, v in ranks.items():
+            print("Sending init data")
+            comm.send(v, dest=k, tag=11)
+
+        while True:
+            _ = comm.recv(source=MPI.ANY_SOURCE, tag=MPI.ANY_TAG, status=status_)
+            print("got request for more. ")
+            source = status_.Get_source()
+            new_data = []
+            for new_pos, line in (enumerate(f)):
+                spl = line.split(' ')
+                if len(spl) != 2:
+                    continue
+                smile, name = spl[0].strip(), spl[1].strip()
+                new_data.append((pos + new_pos, smile, name))
+                if new_pos != 0 and new_pos %  chunk == 0:
+                    print(new_pos, pos + new_pos)
+                    pos = pos + new_pos
+                    comm.send(new_data, dest=source, tag=11)
+                    break
+            else:
+                break
 
 
 
@@ -49,12 +74,10 @@ def setup_server(name):
         while True:
             data = comm.recv(source=MPI.ANY_SOURCE, tag=MPI.ANY_TAG, status=status_)
             for line in data:
-                print("wrote")
                 f.write(line)
 
 def worker(path_root, dbase_name, target_name, docking_only=False, receptor_file=None):
     size = comm.Get_size()
-    data = comm.recv(tag=11)
     struct = "input/"
     docker,recept = interface_functions.get_receptr(receptor_file=receptor_file)
 
@@ -65,49 +88,52 @@ def worker(path_root, dbase_name, target_name, docking_only=False, receptor_file
 
     buffer = []
 
-    for pos in data:
-        pos, smiles, name = pos
-        path = path_root + str(pos) + "/"
-        try:
+    while True:
+        comm.send(['hi'], dest=1, tag=11)
+        data = comm.recv(tag=11)
+        for pos in data:
+            pos, smiles, name = pos
+            path = path_root + str(pos) + "/"
+            try:
 
-            r = dock_policy(smiles)
-            if r:
-                # print("Rank", rank, pos, "running docking...")
-                score, res = interface_functions.RunDocking_(smiles,struct,path, dbase_name, target_name, dock_obj=docker, write=True, recept=recept, receptor_file=receptor_file, name=name, docking_only=docking_only)
-                mols_docked += 1
+                r = dock_policy(smiles)
+                if r:
+                    # print("Rank", rank, pos, "running docking...")
+                    score, res = interface_functions.RunDocking_(smiles,struct,path, dbase_name, target_name, dock_obj=docker, write=True, recept=recept, receptor_file=receptor_file, name=name, docking_only=docking_only)
+                    mols_docked += 1
 
-                if docking_only:
-                    if res is not None:
-                        buffer.append(res)
-                    if len(buffer) > 5:
-                        comm.send(buffer, dest=0, tag=11)
-                        buffer = []
+                    if docking_only:
+                        if res is not None:
+                            buffer.append(res)
+                        if len(buffer) > 5:
+                            comm.send(buffer, dest=0, tag=11)
+                            buffer = []
 
 
-                if not docking_only:
-                    if mols_docked % 1000 == 0:
-                        comm.send(['mini', min_policy.rollout()], dest=0, tag=11)
-                        r = comm.recv(source=0, tag=11)
-                        min_policy.collect_rollout(r)
-                    r = min_policy(smiles, score)
+                    if not docking_only:
+                        if mols_docked % 1000 == 0:
+                            comm.send(['mini', min_policy.rollout()], dest=0, tag=11)
+                            r = comm.recv(source=0, tag=11)
+                            min_policy.collect_rollout(r)
+                        r = min_policy(smiles, score)
 
-                    if r:
-                        interface_functions.ParameterizeOE(path)
-                        mscore = interface_functions.RunMinimization_(path, path)
-                        mols_minimzed += 1
-                        # comm.send([smiles, score, mscore], dest=0, tag=11)
-                        # r = comm.recv(source=0, tag=11)
-                        # print("Rank", rank, "should I run mmgbsa for 1 ns given a energy minmization result of", mscore, "?\t my model says", bool(r))
                         if r:
-                            escore = interface_functions.RunMMGBSA_(path,path)
-        except KeyboardInterrupt:
-            exit()
-        except subprocess.CalledProcessError as e:
-            print("Error rank", rank, e)
-        except IndexError as e:
-            print("Error rank", rank, e)
-        except RuntimeError as e:
-            print("Error rank", rank, e)
+                            interface_functions.ParameterizeOE(path)
+                            mscore = interface_functions.RunMinimization_(path, path)
+                            mols_minimzed += 1
+                            # comm.send([smiles, score, mscore], dest=0, tag=11)
+                            # r = comm.recv(source=0, tag=11)
+                            # print("Rank", rank, "should I run mmgbsa for 1 ns given a energy minmization result of", mscore, "?\t my model says", bool(r))
+                            if r:
+                                escore = interface_functions.RunMMGBSA_(path,path)
+            except KeyboardInterrupt:
+                exit()
+            except subprocess.CalledProcessError as e:
+                print("Error rank", rank, e)
+            except IndexError as e:
+                print("Error rank", rank, e)
+            except RuntimeError as e:
+                print("Error rank", rank, e)
 
 
 def get_args():
