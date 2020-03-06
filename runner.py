@@ -6,7 +6,7 @@ comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
 
 
-def collate(file, chunk=50):
+def collate(file, chunk=15):
     status_ = MPI.Status()
 
     print("loadintg data")
@@ -73,6 +73,8 @@ def setup_server(name):
 
 
 def worker(path_root, dbase_name, target_name, docking_only=False, receptor_file=None):
+    from rdkit import Chem
+    from rdkit.Chem import Lipinski, Descriptors
     struct = "input/"
     docker, recept = interface_functions.get_receptr(receptor_file=receptor_file)
     mols_docked = 0
@@ -80,10 +82,24 @@ def worker(path_root, dbase_name, target_name, docking_only=False, receptor_file
     buffer = []
 
     while True:
-        comm.send(['hi'], dest=1, tag=11)
+        comm.send('hi', dest=1, tag=11)
         data = comm.recv(tag=11)
         for pos in data:
             pos, smiles, name = pos
+
+            try:
+                mol = Chem.MolFromSmiles(smiles)
+                if mol is None:
+                    print("passing on mol", smiles)
+                    continue
+                else:
+                    if mol.GetNumAtoms() < 12 or Descriptors.MolWt(mol) > 500:
+                        print("passing on mol", smiles)
+                        continue
+            except:
+                print("passing on mol", smiles)
+                continue
+
             path = path_root + str(pos) + "/"
             try:
                 score, res = interface_functions.RunDocking_(smiles, struct, path, dbase_name, target_name, pos=pos,
@@ -95,7 +111,7 @@ def worker(path_root, dbase_name, target_name, docking_only=False, receptor_file
                 if docking_only:
                     if res is not None:
                         buffer.append(res)
-                    if len(buffer) > 20:
+                    if len(buffer) > 5:
                         comm.send(buffer, dest=0, tag=11)
                         buffer = []
 
