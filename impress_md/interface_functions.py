@@ -45,7 +45,7 @@ def get_receptr(receptor_file=None):
     from . import dock_conf
     from openeye import oedocking
     receptor = dock_conf.PrepareReceptorFromBinary(receptor_file)
-    dock = oedocking.OEDock(oedocking.OEScoreType_Chemgauss4, oedocking.OESearchResolution_Standard)
+    dock = oedocking.OEDock(oedocking.OEScoreType_Chemgauss4, oedocking.OESearchResolution_Low)
     dock.Initialize(receptor)
     return dock, receptor
 
