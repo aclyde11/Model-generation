@@ -49,8 +49,6 @@ def simulate(inpcrd_filenames, prmtop_filenames, path, niterations=100, implicit
             state = simulation.context.getState(getEnergy=True)
             potential_energy = state.getPotentialEnergy()
             enthalpies[phase][iteration] = potential_energy.value_in_unit(unit.kilojoules_per_mole)
-            if iteration % 10 == 0:
-                print('did 10')
         del simulation
         del system
         del platform

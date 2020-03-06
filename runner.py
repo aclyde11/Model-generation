@@ -12,6 +12,7 @@ import subprocess
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
 
+
 def collate(file, chunk=50):
     status_ = MPI.Status()
 
@@ -105,7 +106,7 @@ def worker(path_root, dbase_name, target_name, docking_only=False, receptor_file
                     if docking_only:
                         if res is not None:
                             buffer.append(res)
-                        if len(buffer) > 5:
+                        if len(buffer) > 10:
                             comm.send(buffer, dest=0, tag=11)
                             buffer = []
 
