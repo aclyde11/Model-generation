@@ -193,7 +193,7 @@ def RunMinimization(build_path, outpath, one_traj=False):
             metrics.write(dat[1].replace('\n',',{},{}\n'.format(diff_energy,0)))
         else:
             metrics.write(dat[1].replace('\n',',NA,NA\n'))
-def RunMinimization_(build_path, outpath, one_traj=False):
+def RunMinimization_(build_path, outpath, one_traj=False, write=False):
     from . import minimize
     success = True
     try:
@@ -209,14 +209,15 @@ def RunMinimization_(build_path, outpath, one_traj=False):
     # TODO: We could decide to do 1-trajectory mmgbsa. It would run about twice as fast as the
     #       current method. I think it would be less accurate, but maybe not. Look into the 1-traj
     #       method from Coveney papers if you want to implement this.
-    with open(f'{outpath}/metrics.csv','r') as metrics:
-        dat = metrics.readlines()
-    with open(f'{outpath}/metrics.csv','w') as metrics:
-        metrics.write(dat[0].replace('\n',',Minimize,Minimize_U\n'))
-        if success:
-            metrics.write(dat[1].replace('\n',',{},{}\n'.format(diff_energy,0)))
-        else:
-            metrics.write(dat[1].replace('\n',',NA,NA\n'))
+    if write:
+        with open(f'{outpath}/metrics.csv','r') as metrics:
+            dat = metrics.readlines()
+        with open(f'{outpath}/metrics.csv','w') as metrics:
+            metrics.write(dat[0].replace('\n',',Minimize,Minimize_U\n'))
+            if success:
+                metrics.write(dat[1].replace('\n',',{},{}\n'.format(diff_energy,0)))
+            else:
+                metrics.write(dat[1].replace('\n',',NA,NA\n'))
     if success:
         return diff_energy
     else:
