@@ -32,6 +32,8 @@ def collate(file):
             ranks[assigner + 2].append((pos, smile, name))
             assigner += 1
             assigner = assigner % (comm.Get_size() - 2)
+            if pos % 10000 == 0:
+                print(pos)
 
     del df
     for k, v in ranks.items():
