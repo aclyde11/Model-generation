@@ -22,7 +22,7 @@ def collate(file):
 
     print("Assigning")
     with open(file, 'r') as f:
-        for pos, line in tqdm(enumerate(f)):
+        for pos, line in (enumerate(f)):
             spl = line.split(' ')
             if len(spl) != 2:
                 continue
@@ -30,7 +30,7 @@ def collate(file):
             ranks[assigner + 2].append((pos, smile, name))
             assigner += 1
             assigner = assigner % (comm.Get_size() - 2)
-            if pos % 10000 == 0:
+            if pos % 1000000 == 0:
                 print(pos)
 
     for k, v in ranks.items():
