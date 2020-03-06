@@ -4,6 +4,7 @@ from mpi4py import MPI
 import pandas as pd
 import sys
 import policy
+from tqdm import tqdm
 from impress_md import interface_functions
 import time
 import subprocess
@@ -17,18 +18,21 @@ def collate(file):
     for i in range(comm.Get_size() - 2):
         ranks[i + 2] = []
 
-    df = pd.read_csv(file, sep=' ', header=None)
+    df = pd.read_csv(file, sep=' ', header=None, low_memory=False, engine='c', )
     print("done")
     assigner = 0
 
     print("Assigning")
-    for pos in range(df.shape[0]):
-        pos, smile, name = pos, df.iloc[pos,0], df.iloc[pos,1]
-        ranks[assigner + 2].append((pos, smile, name))
-        assigner += 1
-        assigner = assigner % (comm.Get_size() - 2)
-        if pos % 1000 == 0:
-            print(pos)
+    with open(file, 'r') as f:
+        for pos, line in tqdm(enumerate(f)):
+            spl = line.split(' ')
+            if len(spl) != 2:
+                continue
+            smile, name = spl[0], spl[1]
+            ranks[assigner + 2].append((pos, smile, name))
+            assigner += 1
+            assigner = assigner % (comm.Get_size() - 2)
+
     del df
     for k, v in ranks.items():
         print("Sending data")
