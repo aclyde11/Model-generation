@@ -3,7 +3,7 @@ from pymbar import timeseries
 from math import sqrt
 
 
-def simulate(inpcrd_filenames, prmtop_filenames, niterations=1000, implicit=True, path):
+def simulate(inpcrd_filenames, prmtop_filenames, path, niterations=1000, implicit=True):
     """
     The program simulates three systems: the ligand alone, protein alone, and complex.
     Input is a dict of files to the input coordinates (.inpcrd) and parameters (.prmtop) 
@@ -37,7 +37,7 @@ def simulate(inpcrd_filenames, prmtop_filenames, niterations=1000, implicit=True
         simulation = app.Simulation(prmtop.topology, system, integrator, platform, properties)
         simulation.context.setPositions(inpcrd.positions)
         if phase == 'com':
-            simulation.reporters.append(app.DCDReporter('com_output.dcd', 1000))
+            simulation.reporters.append(app.DCDReporter(path + '/com_output.dcd', 10))
         # Minimize & equilibrate
         simulation.minimizeEnergy()
         simulation.context.setVelocitiesToTemperature(300*unit.kelvin)

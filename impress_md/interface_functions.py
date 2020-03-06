@@ -280,7 +280,7 @@ def RunMMGBSA_(inpath, outpath, niter=1000):
     crds = {'lig':f'{inpath}/lig.inpcrd','apo':f'{inpath}/apo.inpcrd','com':f'{inpath}/com.inpcrd'}
     prms = {'lig':f'{inpath}/lig.prmtop','apo':f'{inpath}/apo.prmtop','com':f'{inpath}/com.prmtop'}
 
-    enthalpies = mmgbsa.simulate(crds, prms, niter, path)
+    enthalpies = mmgbsa.simulate(crds, prms, niter, outpath)
     # enthalpies is a list of energies from each iteration
     mmgbsa.subsample(enthalpies)
     # We subsample the enthalpies using a method from John Chodera that determines the equilibration
