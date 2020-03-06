@@ -1,7 +1,9 @@
-import sys, os
+import os
+from contextlib import contextmanager
+
 import numpy as np
 from openeye import oechem
-from contextlib import contextmanager
+
 
 @contextmanager
 def working_directory(directory):
@@ -12,6 +14,7 @@ def working_directory(directory):
     finally:
         os.chdir(owd)
 
+
 def RunDocking(smiles, inpath, outpath, padding=4):
     from . import conf_gen
     from . import dock_conf
@@ -20,26 +23,27 @@ def RunDocking(smiles, inpath, outpath, padding=4):
     confs = conf_gen.SelectEnantiomer(conf_gen.FromString(smiles))
     # This receptor can be pre-compiled to an oeb. It speeds things up
     filename, file_extension = os.path.splitext(inpath)
-    #if file_extension == ".oeb":
+    # if file_extension == ".oeb":
     #    receptor = dock_conf.PrepareReceptorFromBinary(inpath)
-    #else: # else it is a pdb
+    # else: # else it is a pdb
     #    receptor = dock_conf.PrepareReceptor(inpath,padding,outpath)
-    
-    dock, lig, receptor = dock_conf.DockConf("input/receptor.oeb",confs,MAX_POSES=1)
-    
+
+    dock, lig, receptor = dock_conf.DockConf("input/receptor.oeb", confs, MAX_POSES=1)
+
     # Currently we generate 200 conformers for each ligand, but only take
     #   the best pose, as scored by Openeye. It may be useful to consider
     #   something about the range of poses.
 
     dock_conf.WriteStructures(receptor, lig, f'{outpath}/apo.pdb', f'{outpath}/lig.pdb')
-    with open(f'{outpath}/metrics.csv','w+') as metrics:
+    with open(f'{outpath}/metrics.csv', 'w+') as metrics:
         metrics.write("Dock,Dock_U\n")
-        metrics.write("{},{}\n".format(dock_conf.BestDockScore(dock,lig),0))
+        metrics.write("{},{}\n".format(dock_conf.BestDockScore(dock, lig), 0))
     # # If you uncomment the three lines below, it will save an image of the 2D
     #   molecule. This is useful as a sanity check.
     # from openeye import oedepict
     # oedepict.OEPrepareDepiction(lig)
     # oedepict.OERenderMolecule(f'{outpath}/lig.png',lig)
+
 
 def get_receptr(receptor_file=None):
     from . import dock_conf
@@ -48,6 +52,7 @@ def get_receptr(receptor_file=None):
     dock = oedocking.OEDock(oedocking.OEScoreType_Chemgauss4, oedocking.OESearchResolution_Standard)
     dock.Initialize(receptor)
     return dock, receptor
+
 
 def CanSmi(mol, isomeric, kekule):
     oechem.OEFindRingAtomsAndBonds(mol)
@@ -67,14 +72,16 @@ def CanSmi(mol, isomeric, kekule):
     smi = oechem.OECreateSmiString(mol, smiflag)
     return smi
 
-def RunDocking_(smiles, inpath, outpath, dbase_name, target_name, padding=4, receptor_file=None, write=False, dock_obj=None, recept=None,name='UNK', docking_only=False):
+
+def RunDocking_(smiles, inpath, outpath, dbase_name, target_name, padding=4, pos=3, receptor_file=None, write=False,
+                dock_obj=None, recept=None, name='UNK', docking_only=False):
     from . import conf_gen
     from . import dock_conf
     if write and not os.path.exists(outpath) and not docking_only:
         os.mkdir(outpath)
     confs = conf_gen.SelectEnantiomer(conf_gen.FromString(smiles))
 
-    dock, lig, receptor = dock_conf.DockConf(receptor_file,confs,MAX_POSES=1, dock=dock_obj)
+    dock, lig, receptor = dock_conf.DockConf(receptor_file, confs, MAX_POSES=1, dock=dock_obj)
     if receptor is None:
         receptor = recept
 
@@ -83,10 +90,11 @@ def RunDocking_(smiles, inpath, outpath, dbase_name, target_name, padding=4, rec
     #   something about the range of poses.
 
     if write:
-        res = "{},{},{},{},{},{}\n".format(name, smiles, dock_conf.BestDockScore(dock, lig), 0, dbase_name, target_name)
+        res = "{},{},{},{},{},{},{}\n".format(str(pos), name, smiles, dock_conf.BestDockScore(dock, lig), 0, dbase_name,
+                                              target_name)
         if not docking_only:
-            with open(f'{outpath}/metrics.csv','w+') as metrics:
-                metrics.write("name,smiles,Dock,Dock_U,dbase,target\n")
+            with open(f'{outpath}/metrics.csv', 'w+') as metrics:
+                metrics.write("pos,name,smiles,Dock,Dock_U,dbase,target\n")
                 metrics.write(res)
             dock_conf.WriteStructures(receptor, lig, f'{outpath}/apo.pdb', f'{outpath}/lig.pdb')
     else:
@@ -96,7 +104,8 @@ def RunDocking_(smiles, inpath, outpath, dbase_name, target_name, padding=4, rec
     # from openeye import oedepict
     # oedepict.OEPrepareDepiction(lig)
     # oedepict.OERenderMolecule(f'{outpath}/lig.png',lig)
-    return dock_conf.BestDockScore(dock,lig), res
+    return dock_conf.BestDockScore(dock, lig), res
+
 
 def ParameterizeOE(path):
     """
@@ -104,24 +113,26 @@ def ParameterizeOE(path):
     Then runs antechamber to convert this to coordinate (.inpcrd) and 
     parameter (.prmtop) files.
     """
-    from openeye import oechem, oeomega, oequacpac
+    from openeye import oechem, oequacpac
     mol = oechem.OEMol()
     ifs = oechem.oemolistream()
     if ifs.open(f'{path}/lig.pdb'):
-        oechem.OEReadMolecule(ifs,mol)
+        oechem.OEReadMolecule(ifs, mol)
         ifs.close()
-    if not oequacpac.OEAssignCharges(mol,oequacpac.OEAM1BCCCharges()):
-        raise(RuntimeError("OEAssignCharges failed."))
+    if not oequacpac.OEAssignCharges(mol, oequacpac.OEAM1BCCCharges()):
+        raise (RuntimeError("OEAssignCharges failed."))
     ofs = oechem.oemolostream()
     if ofs.open(f'{path}/charged.mol2'):
-        oechem.OEWriteMolecule(ofs,mol)
-    
+        oechem.OEWriteMolecule(ofs, mol)
+
     import subprocess
     with working_directory(path):
-        subprocess.check_output(f'antechamber -i lig.pdb -fi pdb -o lig.mol2 -fo mol2 -pf y -an y -a charged.mol2 -fa mol2 -ao crg',shell=True)
-        subprocess.check_output(f'parmchk2 -i lig.mol2 -f mol2 -o lig.frcmod',shell=True)
+        subprocess.check_output(
+            f'antechamber -i lig.pdb -fi pdb -o lig.mol2 -fo mol2 -pf y -an y -a charged.mol2 -fa mol2 -ao crg',
+            shell=True)
+        subprocess.check_output(f'parmchk2 -i lig.mol2 -f mol2 -o lig.frcmod', shell=True)
         # Wrap tleap
-        with open(f'leap.in','w+') as leap:
+        with open(f'leap.in', 'w+') as leap:
             leap.write("source leaprc.protein.ff14SBonlysc\n")
             leap.write("source leaprc.gaff\n")
             leap.write("set default PBRadii mbondi3\n")
@@ -133,7 +144,7 @@ def ParameterizeOE(path):
             leap.write("saveAmberParm lig lig.prmtop lig.inpcrd\n")
             leap.write("saveAmberParm com com.prmtop com.inpcrd\n")
             leap.write("quit\n")
-        subprocess.check_output(f'tleap -f leap.in',shell=True)
+        subprocess.check_output(f'tleap -f leap.in', shell=True)
 
 
 def ParameterizeAMBER(path):
@@ -145,9 +156,9 @@ def ParameterizeAMBER(path):
     """
     import subprocess
     with working_directory(path):
-        subprocess.check_output(f'antechamber -i lig.pdb -fi pdb -o lig.mol2 -fo mol2 -c bcc -pf y -an y',shell=True)
-        subprocess.check_output(f'parmchk2 -i lig.mol2 -f mol2 -o lig.frcmod',shell=True)
-        with open(f'leap.in','w+') as leap:
+        subprocess.check_output(f'antechamber -i lig.pdb -fi pdb -o lig.mol2 -fo mol2 -c bcc -pf y -an y', shell=True)
+        subprocess.check_output(f'parmchk2 -i lig.mol2 -f mol2 -o lig.frcmod', shell=True)
+        with open(f'leap.in', 'w+') as leap:
             leap.write("source leaprc.protein.ff14SBonlysc\n")
             leap.write("source leaprc.gaff\n")
             leap.write("set default PBRadii mbondi3\n")
@@ -159,8 +170,8 @@ def ParameterizeAMBER(path):
             leap.write("saveAmberParm lig lig.prmtop lig.inpcrd\n")
             leap.write("saveAmberParm com com.prmtop com.inpcrd\n")
             leap.write("quit\n")
-        subprocess.check_output(f'tleap -f leap.in',shell=True)
-    
+        subprocess.check_output(f'tleap -f leap.in', shell=True)
+
 
 def RunMinimization(build_path, outpath, one_traj=False):
     """
@@ -178,21 +189,23 @@ def RunMinimization(build_path, outpath, one_traj=False):
         diff_energy = com_energy - lig_energy - rec_energy
     except:
         success = False
-    
+
     if one_traj:
         print("1-traj calculation not ready")
     # TODO: We could decide to do 1-trajectory mmgbsa. It would run about twice as fast as the
     #       current method. I think it would be less accurate, but maybe not. Look into the 1-traj
     #       method from Coveney papers if you want to implement this.
 
-    with open(f'{outpath}/metrics.csv','r') as metrics:
+    with open(f'{outpath}/metrics.csv', 'r') as metrics:
         dat = metrics.readlines()
-    with open(f'{outpath}/metrics.csv','w') as metrics:
-        metrics.write(dat[0].replace('\n',',Minimize,Minimize_U\n'))
+    with open(f'{outpath}/metrics.csv', 'w') as metrics:
+        metrics.write(dat[0].replace('\n', ',Minimize,Minimize_U\n'))
         if success:
-            metrics.write(dat[1].replace('\n',',{},{}\n'.format(diff_energy,0)))
+            metrics.write(dat[1].replace('\n', ',{},{}\n'.format(diff_energy, 0)))
         else:
-            metrics.write(dat[1].replace('\n',',NA,NA\n'))
+            metrics.write(dat[1].replace('\n', ',NA,NA\n'))
+
+
 def RunMinimization_(build_path, outpath, one_traj=False, write=False):
     from . import minimize
     success = True
@@ -210,14 +223,14 @@ def RunMinimization_(build_path, outpath, one_traj=False, write=False):
     #       current method. I think it would be less accurate, but maybe not. Look into the 1-traj
     #       method from Coveney papers if you want to implement this.
     if write:
-        with open(f'{outpath}/metrics.csv','r') as metrics:
+        with open(f'{outpath}/metrics.csv', 'r') as metrics:
             dat = metrics.readlines()
-        with open(f'{outpath}/metrics.csv','w') as metrics:
-            metrics.write(dat[0].replace('\n',',Minimize,Minimize_U\n'))
+        with open(f'{outpath}/metrics.csv', 'w') as metrics:
+            metrics.write(dat[0].replace('\n', ',Minimize,Minimize_U\n'))
             if success:
-                metrics.write(dat[1].replace('\n',',{},{}\n'.format(diff_energy,0)))
+                metrics.write(dat[1].replace('\n', ',{},{}\n'.format(diff_energy, 0)))
             else:
-                metrics.write(dat[1].replace('\n',',NA,NA\n'))
+                metrics.write(dat[1].replace('\n', ',NA,NA\n'))
     if success:
         return diff_energy
     else:
@@ -235,27 +248,28 @@ def Simulation_explicit(inpath, outpath, nsteps, comp='com'):
     except:
         success = False
 
-    with open(f'{inpath}/metrics.csv','r') as metrics:
+    with open(f'{inpath}/metrics.csv', 'r') as metrics:
         dat = metrics.readlines()
-    with open(f'{inpath}/metrics.csv','w') as metrics:
-        metrics.write(dat[0].replace('\n',',U_minimized_explicit\n'))
+    with open(f'{inpath}/metrics.csv', 'w') as metrics:
+        metrics.write(dat[0].replace('\n', ',U_minimized_explicit\n'))
         if success:
-            metrics.write(dat[1].replace('\n',',{}\n'.format(potential)))
+            metrics.write(dat[1].replace('\n', ',{}\n'.format(potential)))
         else:
-            metrics.write(dat[1].replace('\n',',NA\n'))
+            metrics.write(dat[1].replace('\n', ',NA\n'))
     if success:
         return potential
     else:
         return np.nan
+
 
 def RunMMGBSA(inpath, outpath, niter=1000):
     """
     1 'iteration' corresponds to 1 ps.
     """
     from . import mmgbsa
-    crds = {'lig':f'{inpath}/lig.inpcrd','apo':f'{inpath}/apo.inpcrd','com':f'{inpath}/com.inpcrd'}
-    prms = {'lig':f'{inpath}/lig.prmtop','apo':f'{inpath}/apo.prmtop','com':f'{inpath}/com.prmtop'}
-    
+    crds = {'lig': f'{inpath}/lig.inpcrd', 'apo': f'{inpath}/apo.inpcrd', 'com': f'{inpath}/com.inpcrd'}
+    prms = {'lig': f'{inpath}/lig.prmtop', 'apo': f'{inpath}/apo.prmtop', 'com': f'{inpath}/com.prmtop'}
+
     enthalpies = mmgbsa.simulate(crds, prms, niter)
     # enthalpies is a list of energies from each iteration
     mmgbsa.subsample(enthalpies)
@@ -263,12 +277,12 @@ def RunMMGBSA(inpath, outpath, niter=1000):
     #   and autocorrelation times. This allows us to extract an uncertainty.
     #   See the file mmgbsa.py or his package 'pymbar' for more detail.
     energies = mmgbsa.mmgbsa(enthalpies)
-    
-    with open(f'{outpath}/metrics.csv','r') as metrics:
+
+    with open(f'{outpath}/metrics.csv', 'r') as metrics:
         dat = metrics.readlines()
-    with open(f'{outpath}/metrics.csv','w') as metrics:
-        metrics.write(dat[0].replace('\n',',mmgbsa,mmgbsa_U\n'))
-        metrics.write(dat[1].replace('\n',',{},{}\n'.format(energies[0]['diff'],energies[1]['diff'])))
+    with open(f'{outpath}/metrics.csv', 'w') as metrics:
+        metrics.write(dat[0].replace('\n', ',mmgbsa,mmgbsa_U\n'))
+        metrics.write(dat[1].replace('\n', ',{},{}\n'.format(energies[0]['diff'], energies[1]['diff'])))
     return energies
 
 
@@ -277,8 +291,8 @@ def RunMMGBSA_(inpath, outpath):
     1 'iteration' corresponds to 1 ps.
     """
     from . import mmgbsa
-    crds = {'lig':f'{inpath}/lig.inpcrd','apo':f'{inpath}/apo.inpcrd','com':f'{inpath}/com.inpcrd'}
-    prms = {'lig':f'{inpath}/lig.prmtop','apo':f'{inpath}/apo.prmtop','com':f'{inpath}/com.prmtop'}
+    crds = {'lig': f'{inpath}/lig.inpcrd', 'apo': f'{inpath}/apo.inpcrd', 'com': f'{inpath}/com.inpcrd'}
+    prms = {'lig': f'{inpath}/lig.prmtop', 'apo': f'{inpath}/apo.prmtop', 'com': f'{inpath}/com.prmtop'}
 
     enthalpies = mmgbsa.simulate(crds, prms, outpath)
     # enthalpies is a list of energies from each iteration
@@ -288,12 +302,13 @@ def RunMMGBSA_(inpath, outpath):
     #   See the file mmgbsa.py or his package 'pymbar' for more detail.
     energies = mmgbsa.mmgbsa(enthalpies)
 
-    with open(f'{outpath}/metrics.csv','r') as metrics:
+    with open(f'{outpath}/metrics.csv', 'r') as metrics:
         dat = metrics.readlines()
-    with open(f'{outpath}/metrics.csv','w') as metrics:
-        metrics.write(dat[0].replace('\n',',mmgbsa,mmgbsa_U\n'))
-        metrics.write(dat[1].replace('\n',',{},{}\n'.format(energies[0]['diff'],energies[1]['diff'])))
+    with open(f'{outpath}/metrics.csv', 'w') as metrics:
+        metrics.write(dat[0].replace('\n', ',mmgbsa,mmgbsa_U\n'))
+        metrics.write(dat[1].replace('\n', ',{},{}\n'.format(energies[0]['diff'], energies[1]['diff'])))
     return energies[0]['diff']
+
 
 def RunAlchemy(path, niter=2500, nsteps_per_iter=1000, nlambda=11):
     """
@@ -301,9 +316,9 @@ def RunAlchemy(path, niter=2500, nsteps_per_iter=1000, nlambda=11):
     """
     from . import alchemy
     [energy, err] = alchemy.SimulateAlchemy(path, niter, nsteps_per_iter, nlambda)
-    with open(f'{path}/metrics.csv','r') as metrics:
+    with open(f'{path}/metrics.csv', 'r') as metrics:
         dat = metrics.readlines()
-    with open(f'{path}/metrics.csv','w') as metrics:
-        metrics.write(dat[0].replace('\n',',alchemy,alchemy_U\n'))
-        metrics.write(dat[1].replace('\n',',{},{}\n'.format(energy,err)))
+    with open(f'{path}/metrics.csv', 'w') as metrics:
+        metrics.write(dat[0].replace('\n', ',alchemy,alchemy_U\n'))
+        metrics.write(dat[1].replace('\n', ',{},{}\n'.format(energy, err)))
     return energy, err
