@@ -108,8 +108,7 @@ def worker(path_root, dbase_name, target_name, docking_only=False, receptor_file
             print("Error rank", rank, e)
         except RuntimeError as e:
             print("Error rank", rank, e)
-        with open(path + "done.txt", 'w') as f:
-            f.write("t")
+
 
 def get_args():
     import argparse
