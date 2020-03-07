@@ -28,7 +28,7 @@ def simulate(inpcrd_filenames, prmtop_filenames, path, niterations=5000, implici
                  nonbondedMethod=app.CutoffNonPeriodic,
                  nonbondedCutoff=2.0*unit.nanometers, 
                  constraints=app.HBonds)
-        integrator = mm.LangevinIntegrator(300*unit.kelvin, 1.0/unit.picoseconds, 2.0*unit.femtoseconds)
+        integrator = mm.LangevinIntegrator(310.15*unit.kelvin, 1.0/unit.picoseconds, 2.0*unit.femtoseconds)
         integrator.setConstraintTolerance(0.00001)
         
         platform = mm.Platform.getPlatformByName('CUDA')
@@ -36,8 +36,8 @@ def simulate(inpcrd_filenames, prmtop_filenames, path, niterations=5000, implici
         properties = {'CudaPrecision': 'mixed', 'CudaDeviceIndex' : '0'}
         simulation = app.Simulation(prmtop.topology, system, integrator, platform, properties)
         simulation.context.setPositions(inpcrd.positions)
-        if phase == 'com':
-            simulation.reporters.append(app.DCDReporter(path + '/com_output.dcd', 2000))
+        if phase == 'com' or phase == 'apo':
+            simulation.reporters.append(app.DCDReporter(path + '/' + phase + '_output.dcd', 500))
         # Minimize & equilibrate
         simulation.minimizeEnergy()
         simulation.context.setVelocitiesToTemperature(300*unit.kelvin)
