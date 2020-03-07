@@ -1,12 +1,12 @@
 import subprocess
-
+import pandas as pd
 from mpi4py import MPI
 
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
 
 
-def collate(file, chunk=15):
+def collate(file, chunk=10):
     status_ = MPI.Status()
 
     print("loadintg data")
@@ -78,63 +78,51 @@ def worker(path_root, dbase_name, target_name, docking_only=False, receptor_file
     while True:
         comm.send('hi', dest=1, tag=11)
         data = comm.recv(tag=11)
-        for pos in data:
-            pos, smiles, name = pos
 
-            # try:
-            #     mol = Chem.MolFromSmiles(smiles)
-            #     if mol is None:
-            #         print("passing on mol", smiles)
-            #         continue
-            #     else:
-            #         if mol.GetNumAtoms() < 10 or Descriptors.MolWt(mol) > 1000:
-            #             print("passing on mol", smiles)
-            #             continue
-            # except:
-            #     print("passing on mol", smiles)
-            #     continue
+        with open("tmp/" + str(rank) + ".csv", 'w') as f:
+            for pos in data:
+                pos, smiles, name = pos
+                path = path_root + str(pos) + "/"
+                f.write(",".join([str(smiles), receptor_file, path, dbase_name, target_name, str(pos), name]) + '\n')
 
-            path = path_root + str(pos) + "/"
+        try:
             try:
-                try:
-                    call_string = ['python', 'theta_dock.py',
-                                   str(smiles), receptor_file, path, dbase_name, target_name, str(pos), name
-                                   ]
-                    byteOutput = subprocess.check_output(call_string, shell=False)
-                    byteOutput = byteOutput.decode('UTF-8').rstrip() + "\n"
-                except subprocess.CalledProcessError as e:
-                    print("Error in ls -a:\n", e.output)
-                    continue
-                except subprocess.TimeoutExpired as e:
-                    print("Error in ls -a:\n", e.output)
-                    continue
-                except Exception as e:
-                    print("Error rank", rank, e)
-                    continue
-
-                res = byteOutput
-                # score, res = interface_functions.RunDocking_(smiles, receptor_file, path, dbase_name, target_name,
-                #                                              pos=pos, write=True,
-                #                                              receptor_file=receptor_file, name=name,
-                #                                              docking_only=docking_only)
-                if docking_only:
-                    if res is not None:
-                        buffer.append(res)
-                    if len(buffer) > 5:
-                        comm.send(buffer, dest=0, tag=11)
-                        buffer = []
-
-            except KeyboardInterrupt as e:
-                print("Error rank", rank, e)
-                exit()
+                call_string = ['python', 'theta_dock.py', "tmp/" + str(rank) + ".csv"]
+                byteOutput = subprocess.check_output(call_string, shell=False)
+                byteOutput = byteOutput.decode('UTF-8').rstrip() + "\n"
             except subprocess.CalledProcessError as e:
-                print("Error rank", rank, e)
-            except IndexError as e:
-                print("Error rank", rank, e)
-            except RuntimeError as e:
-                print("Error rank", rank, e)
+                print("Error in ls -a:\n", e.output)
+                continue
+            except subprocess.TimeoutExpired as e:
+                print("Error in ls -a:\n", e.output)
+                continue
             except Exception as e:
                 print("Error rank", rank, e)
+                continue
+
+            res = byteOutput
+            # score, res = interface_functions.RunDocking_(smiles, receptor_file, path, dbase_name, target_name,
+            #                                              pos=pos, write=True,
+            #                                              receptor_file=receptor_file, name=name,
+            #                                              docking_only=docking_only)
+            if docking_only:
+                if res is not None:
+                    buffer.append(res)
+                if len(buffer) > 2:
+                    comm.send(buffer, dest=0, tag=11)
+                    buffer = []
+
+        except KeyboardInterrupt as e:
+            print("Error rank", rank, e)
+            exit()
+        except subprocess.CalledProcessError as e:
+            print("Error rank", rank, e)
+        except IndexError as e:
+            print("Error rank", rank, e)
+        except RuntimeError as e:
+            print("Error rank", rank, e)
+        except Exception as e:
+            print("Error rank", rank, e)
 
 
 def get_args():
