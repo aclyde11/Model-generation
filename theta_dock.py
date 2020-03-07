@@ -1,12 +1,17 @@
 import sys
-
+import pandas as pd
 from impress_md import interface_functions
 
 if __name__ == '__main__':
-    smiles, receptor_file, path, dbase_name, target_name, pos, name = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[
-        4], sys.argv[5], sys.argv[6], sys.argv[7]
-    _, res = interface_functions.RunDocking_(smiles, receptor_file, path, dbase_name, target_name,
-                                    pos=pos, write=True,
-                                    receptor_file=receptor_file, name=name,
-                                    docking_only=True)
-    print(res)
+    file_name = sys.argv[1]
+    ress = ""
+    with open(file_name, 'r') as f:
+        for line in f:
+            smiles, receptor_file, path, dbase_name, target_name, pos, name = line.split(',')
+            name = name.strip()
+            _, res = interface_functions.RunDocking_(smiles, receptor_file, path, dbase_name, target_name,
+                                            pos=pos, write=True,
+                                            receptor_file=receptor_file, name=name,
+                                            docking_only=True)
+            ress += res
+    print(ress)
