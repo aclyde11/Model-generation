@@ -102,16 +102,19 @@ def worker(path_root, dbase_name, target_name, docking_only=False, receptor_file
             path = path_root + str(pos) + "/"
             try:
                 try:
-                    call_string = 'python theta_dock.py {} {} {} {} {} {} {}'.format(
+                    call_string = ['python', 'theta_dock.py',
                         str(smiles), receptor_file, path, dbase_name, target_name, str(pos), name
-                    )
-                    byteOutput = subprocess.check_output(call_string, shell=True, timeout=120)
+                    ]
+                    byteOutput = subprocess.check_output(call_string, shell=False)
                     byteOutput = byteOutput.decode('UTF-8').rstrip()
                 except subprocess.CalledProcessError as e:
                     print("Error in ls -a:\n", e.output)
                     continue
                 except subprocess.TimeoutExpired as e:
                     print("Error in ls -a:\n", e.output)
+                    continue
+                except Exception as e:
+                    print("Error rank", rank, e)
                     continue
 
                 res = byteOutput
@@ -128,7 +131,8 @@ def worker(path_root, dbase_name, target_name, docking_only=False, receptor_file
                         comm.send(buffer, dest=0, tag=11)
                         buffer = []
 
-            except KeyboardInterrupt:
+            except KeyboardInterrupt as e:
+                print("Error rank", rank, e)
                 exit()
             except subprocess.CalledProcessError as e:
                 print("Error rank", rank, e)
@@ -136,9 +140,8 @@ def worker(path_root, dbase_name, target_name, docking_only=False, receptor_file
                 print("Error rank", rank, e)
             except RuntimeError as e:
                 print("Error rank", rank, e)
-            except:
-                pass
-
+            except Exception as e:
+                print("Error rank", rank, e)
 
 def get_args():
     import argparse
