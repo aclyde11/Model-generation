@@ -79,6 +79,8 @@ def RunDocking_(smiles, inpath, outpath, dbase_name, target_name, padding=4, pos
     from . import dock_conf
     if write and not os.path.exists(outpath) and not docking_only:
         os.mkdir(outpath)
+    if dock_conf is None:
+        dock_obj, receptor = get_receptr(inpath)
     confs = conf_gen.SelectEnantiomer(conf_gen.FromString(smiles))
 
     dock, lig, receptor = dock_conf.DockConf(receptor_file, confs, MAX_POSES=1, dock=dock_obj)
@@ -322,3 +324,4 @@ def RunAlchemy(path, niter=2500, nsteps_per_iter=1000, nlambda=11):
         metrics.write(dat[0].replace('\n', ',alchemy,alchemy_U\n'))
         metrics.write(dat[1].replace('\n', ',{},{}\n'.format(energy, err)))
     return energy, err
+

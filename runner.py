@@ -1,6 +1,7 @@
-from mpi4py import MPI
-from impress_md import interface_functions
 import subprocess
+
+from mpi4py import MPI
+
 
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
@@ -73,10 +74,8 @@ def setup_server(name):
 
 
 def worker(path_root, dbase_name, target_name, docking_only=False, receptor_file=None):
-    from rdkit import Chem
-    from rdkit.Chem import Lipinski, Descriptors
+
     struct = "input/"
-    docker, recept = interface_functions.get_receptr(receptor_file=receptor_file)
     mols_docked = 0
 
     buffer = []
@@ -87,25 +86,39 @@ def worker(path_root, dbase_name, target_name, docking_only=False, receptor_file
         for pos in data:
             pos, smiles, name = pos
 
-            try:
-                mol = Chem.MolFromSmiles(smiles)
-                if mol is None:
-                    print("passing on mol", smiles)
-                    continue
-                else:
-                    if mol.GetNumAtoms() < 10 or Descriptors.MolWt(mol) > 1000:
-                        print("passing on mol", smiles)
-                        continue
-            except:
-                print("passing on mol", smiles)
-                continue
+            # try:
+            #     mol = Chem.MolFromSmiles(smiles)
+            #     if mol is None:
+            #         print("passing on mol", smiles)
+            #         continue
+            #     else:
+            #         if mol.GetNumAtoms() < 10 or Descriptors.MolWt(mol) > 1000:
+            #             print("passing on mol", smiles)
+            #             continue
+            # except:
+            #     print("passing on mol", smiles)
+            #     continue
 
             path = path_root + str(pos) + "/"
             try:
-                score, res = interface_functions.RunDocking_(smiles, struct, path, dbase_name, target_name, pos=pos,
-                                                             dock_obj=docker, write=True, recept=recept,
-                                                             receptor_file=receptor_file, name=name,
-                                                             docking_only=docking_only)
+                try:
+                    call_string = 'python theta_dock.py {} {} {} {} {} {} {}'.format(
+                        str(smiles), receptor_file, path, dbase_name, target_name, str(pos), name
+                    )
+                    byteOutput = subprocess.check_output(call_string, shell=True, timeout=120)
+                    byteOutput = byteOutput.decode('UTF-8').rstrip()
+                except subprocess.CalledProcessError as e:
+                    print("Error in ls -a:\n", e.output)
+                    continue
+                except subprocess.TimeoutExpired as e:
+                    print("Error in ls -a:\n", e.output)
+                    continue
+
+                res = byteOutput
+                # score, res = interface_functions.RunDocking_(smiles, receptor_file, path, dbase_name, target_name,
+                #                                              pos=pos, write=True,
+                #                                              receptor_file=receptor_file, name=name,
+                #                                              docking_only=docking_only)
                 mols_docked += 1
 
                 if docking_only:
