@@ -79,7 +79,7 @@ def RunDocking_(smiles, inpath, outpath, dbase_name, target_name, padding=4, pos
     from . import dock_conf
     if write and not os.path.exists(outpath) and not docking_only:
         os.mkdir(outpath)
-    if dock_conf is None:
+    if dock_obj is None:
         dock_obj, receptor = get_receptr(inpath)
     confs = conf_gen.SelectEnantiomer(conf_gen.FromString(smiles))
 
@@ -87,12 +87,9 @@ def RunDocking_(smiles, inpath, outpath, dbase_name, target_name, padding=4, pos
     if receptor is None:
         receptor = recept
 
-    # Currently we generate 200 conformers for each ligand, but only take
-    #   the best pose, as scored by Openeye. It may be useful to consider
-    #   something about the range of poses.
-
+    bs = dock_conf.BestDockScore(dock, lig)
     if write:
-        res = "{},{},{},{},{},{},{}\n".format(str(pos), name, smiles, dock_conf.BestDockScore(dock, lig), 0, dbase_name,
+        res = "{},{},{},{},{},{},{}\n".format(str(pos), name, smiles, bs, 0, dbase_name,
                                               target_name)
         if not docking_only:
             with open(f'{outpath}/metrics.csv', 'w+') as metrics:
@@ -101,12 +98,8 @@ def RunDocking_(smiles, inpath, outpath, dbase_name, target_name, padding=4, pos
             dock_conf.WriteStructures(receptor, lig, f'{outpath}/apo.pdb', f'{outpath}/lig.pdb')
     else:
         res = None
-    # # If you uncomment the three lines below, it will save an image of the 2D
-    #   molecule. This is useful as a sanity check.
-    # from openeye import oedepict
-    # oedepict.OEPrepareDepiction(lig)
-    # oedepict.OERenderMolecule(f'{outpath}/lig.png',lig)
-    return dock_conf.BestDockScore(dock, lig), res
+
+    return bs, res
 
 
 def ParameterizeOE(path):

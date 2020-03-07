@@ -1,15 +1,14 @@
 import subprocess
-import pandas as pd
+import os
 from mpi4py import MPI
 
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
 
 
-def collate(file, chunk=10):
+def collate(file, chunk_size=10):
     status_ = MPI.Status()
 
-    print("loadintg data")
     ranks = {}
     for i in range(comm.Get_size() - 2):
         _ = comm.recv(source=MPI.ANY_SOURCE, tag=MPI.ANY_TAG, status=status_)
@@ -29,7 +28,7 @@ def collate(file, chunk=10):
             ranks[assigner + 2].append((pos, smile, name))
             assigner += 1
             assigner = assigner % (comm.Get_size() - 2)
-            if pos != 0 and pos % (size * chunk) == 0:
+            if pos != 0 and pos % (size * chunk_size) == 0:
                 print(pos)
                 break
 
@@ -49,7 +48,7 @@ def collate(file, chunk=10):
                         continue
                     smile, name = spl[0].strip(), spl[1].strip()
                     new_data.append((pos + new_pos, smile, name))
-                    if new_pos != 0 and new_pos % chunk == 0:
+                    if new_pos != 0 and new_pos % chunk_size == 0:
                         print(new_pos, pos + new_pos)
                         pos = pos + new_pos
                         comm.send(new_data, dest=source, tag=11)
@@ -72,11 +71,11 @@ def setup_server(name):
             opentype = 'a'
 
 
-def worker(path_root, dbase_name, target_name, docking_only=False, receptor_file=None):
+def worker(path_root, dbase_name, target_name, buffer_size, receptor_file=None):
     buffer = []
 
     while True:
-        comm.send('hi', dest=1, tag=11)
+        comm.send('need data', dest=1, tag=11)
         data = comm.recv(tag=11)
 
         with open("tmp/" + str(rank) + ".csv", 'w') as f:
@@ -105,12 +104,11 @@ def worker(path_root, dbase_name, target_name, docking_only=False, receptor_file
             #                                              pos=pos, write=True,
             #                                              receptor_file=receptor_file, name=name,
             #                                              docking_only=docking_only)
-            if docking_only:
-                if res is not None:
-                    buffer.append(res)
-                if len(buffer) > 2:
-                    comm.send(buffer, dest=0, tag=11)
-                    buffer = []
+            if res is not None:
+                buffer.append(res)
+            if len(buffer) > buffer_size:
+                comm.send(buffer, dest=0, tag=11)
+                buffer = []
 
         except KeyboardInterrupt as e:
             print("Error rank", rank, e)
@@ -128,18 +126,18 @@ def worker(path_root, dbase_name, target_name, docking_only=False, receptor_file
 def get_args():
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument('--dock_only', action='store_true')
     parser.add_argument('--smiles', type=str, required=True)
     parser.add_argument('--path', type=str, required=True)
     parser.add_argument('--target_name', type=str, required=True)
     parser.add_argument('--dbase_name', type=str, required=True)
     parser.add_argument('--receptor_file', type=str, required=True)
+    parser.add_argument('--chunk_size', type=int, required=False, default=10)
+    parser.add_argument('--buffer_size', type=int, required=False, default=2)
+
     return parser.parse_args()
 
 
 if __name__ == '__main__':
-    import os
-
     args = get_args()
 
     path_root = args.path
@@ -147,9 +145,8 @@ if __name__ == '__main__':
     if rank == 0:
         if not os.path.exists(path_root):
             os.mkdir(path_root)
-        setup_server(args.path + "_" + args.target_name + "_" + args.dbase_name + "_output.csv")
+        setup_server(args.target_name + "_" + args.dbase_name + "_output.csv")
     elif rank == 1:
-        collate(args.smiles)
+        collate(args.smiles, args.chunk_size)
     else:
-        worker(path_root + "/rank", args.dbase_name, args.target_name, docking_only=args.dock_only,
-               receptor_file=args.receptor_file)
+        worker(path_root + "/rank", args.dbase_name, args.target_name, args.buffer_size, receptor_file=args.receptor_file)
