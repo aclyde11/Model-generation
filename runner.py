@@ -2,7 +2,6 @@ import subprocess
 
 from mpi4py import MPI
 
-
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
 
@@ -74,10 +73,6 @@ def setup_server(name):
 
 
 def worker(path_root, dbase_name, target_name, docking_only=False, receptor_file=None):
-
-    struct = "input/"
-    mols_docked = 0
-
     buffer = []
 
     while True:
@@ -103,10 +98,10 @@ def worker(path_root, dbase_name, target_name, docking_only=False, receptor_file
             try:
                 try:
                     call_string = ['python', 'theta_dock.py',
-                        str(smiles), receptor_file, path, dbase_name, target_name, str(pos), name
-                    ]
+                                   str(smiles), receptor_file, path, dbase_name, target_name, str(pos), name
+                                   ]
                     byteOutput = subprocess.check_output(call_string, shell=False)
-                    byteOutput = byteOutput.decode('UTF-8').rstrip()
+                    byteOutput = byteOutput.decode('UTF-8').rstrip() + "\n"
                 except subprocess.CalledProcessError as e:
                     print("Error in ls -a:\n", e.output)
                     continue
@@ -122,8 +117,6 @@ def worker(path_root, dbase_name, target_name, docking_only=False, receptor_file
                 #                                              pos=pos, write=True,
                 #                                              receptor_file=receptor_file, name=name,
                 #                                              docking_only=docking_only)
-                mols_docked += 1
-
                 if docking_only:
                     if res is not None:
                         buffer.append(res)
@@ -142,6 +135,7 @@ def worker(path_root, dbase_name, target_name, docking_only=False, receptor_file
                 print("Error rank", rank, e)
             except Exception as e:
                 print("Error rank", rank, e)
+
 
 def get_args():
     import argparse
