@@ -73,31 +73,32 @@ def CanSmi(mol, isomeric, kekule):
     return smi
 
 
-def RunDocking_(smiles, inpath, outpath, dbase_name, target_name, padding=4, pos=3, receptor_file=None, write=False,
+
+def RunDocking_(smiles, inpath, outpath, dbase_name, target_name, pos=0, receptor_file=None, write=False,
                 dock_obj=None, recept=None, name='UNK', docking_only=False):
     from . import conf_gen
     from . import dock_conf
-    if write and not os.path.exists(outpath) and not docking_only:
-        os.mkdir(outpath)
+
     if dock_obj is None:
         dock_obj, receptor = get_receptr(inpath)
     confs = conf_gen.SelectEnantiomer(conf_gen.FromString(smiles))
 
     dock, lig, receptor = dock_conf.DockConf(receptor_file, confs, MAX_POSES=1, dock=dock_obj)
+
     if receptor is None:
         receptor = recept
 
     bs = dock_conf.BestDockScore(dock, lig)
-    if write:
-        res = "{},{},{},{},{},{},{}\n".format(str(pos), name, smiles, bs, 0, dbase_name,
+    # if write:
+    res = "{},{},{},{},{},{},{}\n".format(str(pos), name, smiles, bs, 0, dbase_name,
                                               target_name)
-        if not docking_only:
-            with open(f'{outpath}/metrics.csv', 'w+') as metrics:
-                metrics.write("pos,name,smiles,Dock,Dock_U,dbase,target\n")
-                metrics.write(res)
-            dock_conf.WriteStructures(receptor, lig, f'{outpath}/apo.pdb', f'{outpath}/lig.pdb')
-    else:
-        res = None
+    #     if not docking_only:
+    #         with open(f'{outpath}/metrics.csv', 'w+') as metrics:
+    #             metrics.write("pos,name,smiles,Dock,Dock_U,dbase,target\n")
+    #             metrics.write(res)
+    #         dock_conf.WriteStructures(receptor, lig, f'{outpath}/apo.pdb', f'{outpath}/lig.pdb')
+    # else:
+    #     res = None
 
     return bs, res
 
