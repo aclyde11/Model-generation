@@ -72,8 +72,6 @@ def CanSmi(mol, isomeric, kekule):
     smi = oechem.OECreateSmiString(mol, smiflag)
     return smi
 
-
-
 def RunDocking_(smiles, inpath, outpath, dbase_name, target_name, pos=0, receptor_file=None, write=False,
                 dock_obj=None, recept=None, name='UNK', docking_only=False):
     from . import conf_gen
@@ -92,13 +90,31 @@ def RunDocking_(smiles, inpath, outpath, dbase_name, target_name, pos=0, recepto
     # if write:
     res = "{},{},{},{},{},{},{}\n".format(str(pos), name, smiles, bs, 0, dbase_name,
                                               target_name)
-    #     if not docking_only:
-    #         with open(f'{outpath}/metrics.csv', 'w+') as metrics:
-    #             metrics.write("pos,name,smiles,Dock,Dock_U,dbase,target\n")
-    #             metrics.write(res)
-    #         dock_conf.WriteStructures(receptor, lig, f'{outpath}/apo.pdb', f'{outpath}/lig.pdb')
-    # else:
-    #     res = None
+    return bs, res
+
+def RunDocking_A(smiles, inpath, outpath, dbase_name, target_name, pos=0, receptor_file=None, write=False,
+                dock_obj=None, recept=None, name='UNK', docking_only=False):
+    from . import conf_gen
+    from . import dock_conf
+    if not os.path.exists(outpath):
+        os.mkdir(outpath)
+    if dock_obj is None:
+        dock_obj, receptor = get_receptr(inpath)
+    confs = conf_gen.SelectEnantiomer(conf_gen.FromString(smiles))
+
+    dock, lig, receptor = dock_conf.DockConf(receptor_file, confs, MAX_POSES=1, dock=dock_obj)
+
+    if receptor is None:
+        receptor = recept
+
+    bs = dock_conf.BestDockScore(dock, lig)
+    res = "{},{},{},{},{},{},{}\n".format(str(pos), name, smiles, bs, 0, dbase_name,
+                                          target_name)
+    dock_conf.WriteStructures(receptor, lig, f'{outpath}/apo.pdb', f'{outpath}/lig.pdb')
+    with open(f'{outpath}/metrics.csv', 'w+') as metrics:
+        metrics.write("name,smiles,Dock,Dock_U,dbase,target\n")
+        metrics.write(res)
+    # if write:
 
     return bs, res
 
@@ -202,13 +218,13 @@ def RunMinimization(build_path, outpath, one_traj=False):
             metrics.write(dat[1].replace('\n', ',NA,NA\n'))
 
 
-def RunMinimization_(build_path, outpath, one_traj=False, write=False):
+def RunMinimization_(build_path, outpath, one_traj=False, write=False, gpu=False):
     from . import minimize
     success = True
     try:
-        lig_energy = minimize.MinimizedEnergy(f'{build_path}/lig')
-        rec_energy = minimize.MinimizedEnergy(f'{build_path}/apo')
-        com_energy = minimize.MinimizedEnergy(f'{build_path}/com')
+        lig_energy = minimize.MinimizedEnergy(f'{build_path}/lig', gpu=gpu)
+        rec_energy = minimize.MinimizedEnergy(f'{build_path}/apo', gpu=gpu)
+        com_energy = minimize.MinimizedEnergy(f'{build_path}/com', gpu=gpu)
         diff_energy = com_energy - lig_energy - rec_energy
     except:
         success = False
@@ -282,7 +298,7 @@ def RunMMGBSA(inpath, outpath, niter=1000):
     return energies
 
 
-def RunMMGBSA_(inpath, outpath):
+def RunMMGBSA_(inpath, outpath, gpu=False):
     """
     1 'iteration' corresponds to 1 ps.
     """
@@ -290,7 +306,7 @@ def RunMMGBSA_(inpath, outpath):
     crds = {'lig': f'{inpath}/lig.inpcrd', 'apo': f'{inpath}/apo.inpcrd', 'com': f'{inpath}/com.inpcrd'}
     prms = {'lig': f'{inpath}/lig.prmtop', 'apo': f'{inpath}/apo.prmtop', 'com': f'{inpath}/com.prmtop'}
 
-    enthalpies = mmgbsa.simulate(crds, prms, outpath)
+    enthalpies = mmgbsa.simulate(crds, prms, outpath, gpu=gpu)
     # enthalpies is a list of energies from each iteration
     mmgbsa.subsample(enthalpies)
     # We subsample the enthalpies using a method from John Chodera that determines the equilibration

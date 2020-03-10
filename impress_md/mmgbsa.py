@@ -3,7 +3,7 @@ from pymbar import timeseries
 from math import sqrt
 
 
-def simulate(inpcrd_filenames, prmtop_filenames, path, niterations=5000, implicit=True):
+def simulate(inpcrd_filenames, prmtop_filenames, path, niterations=5000, implicit=True, gpu=False):
     """
     The program simulates three systems: the ligand alone, protein alone, and complex.
     Input is a dict of files to the input coordinates (.inpcrd) and parameters (.prmtop) 
@@ -31,13 +31,13 @@ def simulate(inpcrd_filenames, prmtop_filenames, path, niterations=5000, implici
         integrator = mm.LangevinIntegrator(310.15*unit.kelvin, 1.0/unit.picoseconds, 2.0*unit.femtoseconds)
         integrator.setConstraintTolerance(0.00001)
         
-        platform = mm.Platform.getPlatformByName('CUDA')
+        platform = mm.Platform.getPlatformByName('CUDA' if gpu else 'CPU')
         # I'm not sure what the CudaDeviceIndex is about. Austin at 
         properties = {'CudaPrecision': 'mixed', 'CudaDeviceIndex' : '0'}
         simulation = app.Simulation(prmtop.topology, system, integrator, platform, properties)
         simulation.context.setPositions(inpcrd.positions)
-        if phase == 'com' or phase == 'apo':
-            simulation.reporters.append(app.DCDReporter(path + '/' + phase + '_output.dcd', 500))
+        if phase == 'com':
+            simulation.reporters.append(app.DCDReporter(path + '/' + phase + '_output.dcd', 10000))
         # Minimize & equilibrate
         simulation.minimizeEnergy()
         simulation.context.setVelocitiesToTemperature(300*unit.kelvin)

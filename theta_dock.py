@@ -5,7 +5,7 @@ from impress_md import interface_functions
 
 if __name__ == '__main__':
     smiles_files = pd.read_csv(sys.argv[1], sep=' ', header=None)
-    target_filoe = sys.argv[2]
+    target_filoe = sys.argv[2] #twenty of these
     dbase_name = 'test'
     target_name = 'pl_pro'
 
