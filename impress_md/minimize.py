@@ -5,6 +5,7 @@ from simtk import unit
 def MinimizedEnergy(filepath, gpu=False):
     prmtop = app.AmberPrmtopFile(f'{filepath}.prmtop')
     inpcrd = app.AmberInpcrdFile(f'{filepath}.inpcrd')
+    print(f'{filepath}.prmtop')
     system = prmtop.createSystem(implicitSolvent=app.GBn2,
                                  nonbondedMethod=app.CutoffNonPeriodic,
                                  nonbondedCutoff=1.0*unit.nanometers,
@@ -17,7 +18,7 @@ def MinimizedEnergy(filepath, gpu=False):
                                        2.0*unit.femtoseconds)
     integrator.setConstraintTolerance(0.00001)
     # TODO: This should just recognize whatever the computer is capable of, not force CUDA.
-    platform = mm.Platform.getPlatformByName('CUDA' if gpu else 'CPU ')
+    platform = mm.Platform.getPlatformByName('CUDA' if gpu else 'CPU')
 
     simulation = app.Simulation(prmtop.topology, system, integrator, platform)
     simulation.context.setPositions(inpcrd.positions)

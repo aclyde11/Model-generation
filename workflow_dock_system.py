@@ -31,11 +31,10 @@ if __name__ == '__main__':
 
         ### THIS IS GPU CODE BELOW
         ## WORKFLOW 1
-        print("Got here")
-        interface_functions.RunMinimization_(output_location + ligand_name + '/', output_location + ligand_name + '/', write=True, gpu=False)
+        interface_functions.RunMinimization_(output_location + ligand_name + '', output_location + ligand_name + '', write=True, gpu=False)
 
         ## Workflow 1.1 # if workflow 1 is good, we then run this.
-        interface_functions.RunMMGBSA_(output_location + ligand_name + '/', output_location + ligand_name + '/', gpu=False)
+        interface_functions.RunMMGBSA_(output_location + ligand_name + '', output_location + ligand_name + '', gpu=False)
 
         print(res)
 
