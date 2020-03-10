@@ -21,19 +21,35 @@ if __name__ == '__main__':
         smiles = smiles_files.iloc[pos, 0]
         ligand_name = smiles_files.iloc[pos, 1]
 
-        ## WORKFLOW 0.1 , CPU Code. doesn not run on power.
+######
+        ## WORKFLOW 0
+        score, res = interface_functions.RunDocking_(smiles, None, None, dbase_name, target_name,
+                                                     pos=pos, write=True,
+                                                     receptor_file=None, name=ligand_name,
+                                                     docking_only=True, dock_obj=docker, recept=receptor)
+
+
+##############
+        ## WORKFLOW 0.1
+        # conda install -c openeye openeye-tools
         score, res = interface_functions.RunDocking_A(smiles, None, output_location + ligand_name + '/', dbase_name, target_name,
                                         pos=pos, write=True,
                                         receptor_file=None, name=ligand_name,
                                         docking_only=True, dock_obj=docker, recept=receptor)
         interface_functions.ParameterizeOE(output_location + ligand_name + '/')
+        # conda install -c omina ambertools ambermini
 
 
+###################
         ### THIS IS GPU CODE BELOW
         ## WORKFLOW 1
+
+        #O(100k)
         interface_functions.RunMinimization_(output_location + ligand_name + '', output_location + ligand_name + '', write=True, gpu=False)
 
         ## Workflow 1.1 # if workflow 1 is good, we then run this.
+###################################
+        #O(10k)
         interface_functions.RunMMGBSA_(output_location + ligand_name + '', output_location + ligand_name + '', gpu=False)
 
         print(res)
