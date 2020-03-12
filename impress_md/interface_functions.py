@@ -223,6 +223,7 @@ def RunMinimization_(build_path, outpath, one_traj=False, write=False, gpu=False
     success = True
     try:
         lig_energy = minimize.MinimizedEnergy(f'{build_path}/lig', gpu=gpu)
+        print(lig_energy)
         rec_energy = minimize.MinimizedEnergy(f'{build_path}/apo', gpu=gpu)
         com_energy = minimize.MinimizedEnergy(f'{build_path}/com', gpu=gpu)
         diff_energy = com_energy - lig_energy - rec_energy
