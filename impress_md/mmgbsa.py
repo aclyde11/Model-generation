@@ -37,7 +37,7 @@ def simulate(inpcrd_filenames, prmtop_filenames, path, niterations=5000, implici
         simulation = app.Simulation(prmtop.topology, system, integrator, platform, properties)
         simulation.context.setPositions(inpcrd.positions)
         if phase == 'com':
-            simulation.reporters.append(app.DCDReporter(path + '/' + phase + '_output.dcd', 10000))
+            simulation.reporters.append(app.PDBReporter(path + '/' + phase + '_output.pdb', 10000))
         # Minimize & equilibrate
         simulation.minimizeEnergy()
         simulation.context.setVelocitiesToTemperature(300*unit.kelvin)
