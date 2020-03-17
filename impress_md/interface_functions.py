@@ -2,7 +2,6 @@ import os
 from contextlib import contextmanager
 
 import numpy as np
-from openeye import oechem
 
 
 @contextmanager
@@ -55,6 +54,8 @@ def get_receptr(receptor_file=None):
 
 
 def CanSmi(mol, isomeric, kekule):
+    from openeye import oechem
+
     oechem.OEFindRingAtomsAndBonds(mol)
     oechem.OEAssignAromaticFlags(mol, oechem.OEAroModel_OpenEye)
     smiflag = oechem.OESMILESFlag_Canonical
