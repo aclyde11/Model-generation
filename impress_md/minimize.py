@@ -13,7 +13,7 @@ def MinimizedEnergy(filepath, gpu=False):
                                  rigidWater=True,
                                  ewaldErrorTolerance=0.0005)
 
-    integrator = mm.LangevinIntegrator(300*unit.kelvin,
+    integrator = mm.LangevinIntegrator(310.15*unit.kelvin,
                                        1.0/unit.picoseconds,
                                        2.0*unit.femtoseconds)
     integrator.setConstraintTolerance(0.00001)
@@ -54,7 +54,7 @@ def MinimizedEnergy(filepath, gpu=False):
 #     energy = simulation.context.getState(getEnergy=True).getPotentialEnergy().value_in_unit(unit.kilojoule / unit.mole)
 #     return energy
 
-def simulation(filepath, outpath, nsteps):
+def simulation(filepath, outpath, nsteps, gpu=True):
     prmtop = app.AmberPrmtopFile(f'{filepath}.prmtop')
     inpcrd = app.AmberInpcrdFile(f'{filepath}.inpcrd')
     forcefield = app.ForceField('amber14-all.xml', 'amber14/tip3p.xml')
@@ -63,7 +63,7 @@ def simulation(filepath, outpath, nsteps):
     system = forcefield.createSystem(modeller.topology, nonbondedMethod=app.PME, nonbondedCutoff=1.0*unit.nanometer,
             constraints=app.HBonds)
     integrator = mm.LangevinIntegrator(300*unit.kelvin, 1.0/unit.picosecond, 0.002*unit.picosecond)
-    platform = mm.Platform.getPlatformByName('CUDA')
+    platform = mm.Platform.getPlatformByName('CUDA' if gpu else 'CPU')
     properties = {'Precision': 'double'}
     simulation = app.Simulation(modeller.topology, system, integrator, platform, properties)
     simulation.context.setPositions(modeller.positions)
