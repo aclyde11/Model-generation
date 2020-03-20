@@ -40,7 +40,7 @@ def simulate(inpcrd_filenames, prmtop_filenames, path, niterations=5000, implici
             simulation.reporters.append(app.PDBReporter(path + '/' + phase + '_output.dcd', 10000))
         # Minimize & equilibrate
         simulation.minimizeEnergy()
-        simulation.context.setVelocitiesToTemperature(300*unit.kelvin)
+        simulation.context.setVelocitiesToTemperature(310.15*unit.kelvin)
         simulation.step(100)
 
         # Run simulation
