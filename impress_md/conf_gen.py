@@ -10,7 +10,7 @@ def FromMol(mol, isomer=True, num_enantiomers=1):
         num_enantiomers is the allowable number of enantiomers. For all, set to -1
     """
     omegaOpts = oeomega.OEOmegaOptions()
-    omegaOpts.SetMaxConfs(25)
+    omegaOpts.SetMaxConfs(100)
     omega = oeomega.OEOmega(omegaOpts)
     out_conf = []
     

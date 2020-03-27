@@ -87,11 +87,11 @@ def PrepareReceptorFromBinary(filename):
     oedocking.OEReadReceptorFile(receptor,filename)
     return receptor
 
-def DockConf(pdb_file, mol, MAX_POSES = 3, dock=None):
+def DockConf(pdb_file, mol, MAX_POSES = 1, dock=None):
     if dock is None:
         receptor = oechem.OEGraphMol()
         oedocking.OEReadReceptorFile(receptor, pdb_file)
-        dock = oedocking.OEDock()
+        dock = oedocking.OEDock(oedocking.OEScoreType_Chemgauss4, oedocking.OESearchResolution_High)
         dock.Initialize(receptor)
     else:
         receptor = None
