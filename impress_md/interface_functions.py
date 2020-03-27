@@ -299,7 +299,7 @@ def RunMMGBSA(inpath, outpath, niter=1000):
     return energies
 
 
-def RunMMGBSA_(inpath, outpath, gpu=False):
+def RunMMGBSA_(inpath, outpath, gpu=False, niters=5000):
     """
     1 'iteration' corresponds to 1 ps.
     """
@@ -307,7 +307,7 @@ def RunMMGBSA_(inpath, outpath, gpu=False):
     crds = {'lig': f'{inpath}/lig.inpcrd', 'apo': f'{inpath}/apo.inpcrd', 'com': f'{inpath}/com.inpcrd'}
     prms = {'lig': f'{inpath}/lig.prmtop', 'apo': f'{inpath}/apo.prmtop', 'com': f'{inpath}/com.prmtop'}
 
-    enthalpies = mmgbsa.simulate(crds, prms, outpath, gpu=gpu)
+    enthalpies = mmgbsa.simulate(crds, prms, outpath, gpu=gpu, niterations=niters)
     # enthalpies is a list of energies from each iteration
     mmgbsa.subsample(enthalpies)
     # We subsample the enthalpies using a method from John Chodera that determines the equilibration
