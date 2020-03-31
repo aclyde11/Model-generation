@@ -2,56 +2,41 @@ import sys
 import pandas as pd
 from impress_md import interface_functions
 import os
+import numpy as np
 
 if __name__ == '__main__':
     smiles_files = pd.read_csv(sys.argv[1], sep=' ', header=None)
-    target_filoe = sys.argv[2] #twenty of these
-    dbase_name = 'test'
-    target_name = 'pl_pro'
+    receptor_file = sys.argv[2] #twenty of these
+    dbase_name = 'ena_db'
+    target_name = receptor_file
+    path_root = 'rank/'
+
 
     output_location = 'output_test/'
     if not os.path.exists(output_location):
         os.mkdir(output_location)
 
-    ### OPTION 1, no need to read receptor from file system everytime
-
-    docker, receptor = interface_functions.get_receptr(target_filoe)
+    struct = "input/"
+    docker, recept = interface_functions.get_receptr(receptor_file=receptor_file)
 
     for pos in range(smiles_files.shape[0]):
-        smiles = smiles_files.iloc[pos, 0]
-        ligand_name = smiles_files.iloc[pos, 1]
+        pos, smiles, name = pos, smiles_files.iloc[pos, 0], smiles_files.iloc[pos, 1]
+        path = path_root + str(pos) + "/"
 
-######
-        ## WORKFLOW 0
-        score, res = interface_functions.RunDocking_(smiles, None, None, dbase_name, target_name,
-                                                     pos=pos, write=True,
-                                                     receptor_file=None, name=ligand_name,
-                                                     docking_only=True, dock_obj=docker, recept=receptor)
+        score, res = interface_functions.RunDocking_A(smiles, struct, path, dbase_name, target_name,
+                                                      dock_obj=docker, write=True, recept=recept,
+                                                      receptor_file=receptor_file, name=name, docking_only=False)
 
+        interface_functions.ParameterizeOE(path)
 
-##############
-        ## WORKFLOW 0.1
-        # conda install -c openeye openeye-tools
-        score, res = interface_functions.RunDocking_A(smiles, None, output_location + ligand_name + '/', dbase_name, target_name,
-                                        pos=pos, write=True,
-                                        receptor_file=None, name=ligand_name,
-                                        docking_only=True, dock_obj=docker, recept=receptor)
-        interface_functions.ParameterizeOE(output_location + ligand_name + '/')
-        # conda install -c omina ambertools ambermini
+        mscore = interface_functions.RunMinimization_(path, path, write=True, gpu=True)
+        if mscore < -500:
+            escore = interface_functions.RunMMGBSA_(path, path, gpu=True, niters=5000) #5ns
 
+        #collect this result string
+        with open(path + "/metrics.csv") as f:
+            next(f)
+            result = next(f)
 
-###################
-        ### THIS IS GPU CODE BELOW
-        ## WORKFLOW 1
-
-        #O(100k)
-        interface_functions.RunMinimization_(output_location + ligand_name + '', output_location + ligand_name + '', write=True, gpu=False)
-
-        ## Workflow 1.1 # if workflow 1 is good, we then run this.
-###################################
-        #O(10k)
-        interface_functions.RunMMGBSA_(output_location + ligand_name + '', output_location + ligand_name + '', gpu=False)
-
-        print(res)
 
 
