@@ -3,7 +3,7 @@ from pymbar import timeseries
 from math import sqrt
 
 
-def simulate(inpcrd_filenames, prmtop_filenames, path, niterations=5000, implicit=True, gpu=False):
+def simulate(inpcrd_filenames, prmtop_filenames, path, niterations=10000, implicit=True, gpu=True, niters=0):
     """
     The program simulates three systems: the ligand alone, protein alone, and complex.
     Input is a dict of files to the input coordinates (.inpcrd) and parameters (.prmtop) 

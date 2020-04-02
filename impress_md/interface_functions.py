@@ -49,7 +49,7 @@ def get_receptr(receptor_file=None):
     from . import dock_conf
     from openeye import oedocking
     receptor = dock_conf.PrepareReceptorFromBinary(receptor_file)
-    dock = oedocking.OEDock(oedocking.OEScoreType_Chemgauss4, oedocking.OESearchResolution_Standard)
+    dock = oedocking.OEDock(oedocking.OEScoreType_Chemgauss4, oedocking.OESearchResolution_High)
     dock.Initialize(receptor)
     return dock, receptor
 
@@ -310,7 +310,7 @@ def RunMMGBSA_(inpath, outpath, gpu=False):
     crds = {'lig': f'{inpath}/lig.inpcrd', 'apo': f'{inpath}/apo.inpcrd', 'com': f'{inpath}/com.inpcrd'}
     prms = {'lig': f'{inpath}/lig.prmtop', 'apo': f'{inpath}/apo.prmtop', 'com': f'{inpath}/com.prmtop'}
 
-    enthalpies = mmgbsa.simulate(crds, prms, outpath, gpu=gpu)
+    enthalpies = mmgbsa.simulate(crds, prms, outpath, gpu=gpu, niters=1000)
     # enthalpies is a list of energies from each iteration
     mmgbsa.subsample(enthalpies)
     # We subsample the enthalpies using a method from John Chodera that determines the equilibration

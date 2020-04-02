@@ -1,5 +1,5 @@
 import os
-
+import glob
 from mpi4py import MPI
 import pandas as pd
 import sys
@@ -7,8 +7,6 @@ import policy
 from impress_md import interface_functions
 import time
 import subprocess
-from pymol import cmd
-
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
 os.environ['CUDA_VISIBLE_DEVICES'] = str(rank)
@@ -54,19 +52,45 @@ def worker(df, path_root, dbase_name, target_name, docking_only=False, receptor_
         path = path_root + str(pos) + "/"
         try:
             score, res = interface_functions.RunDocking_A(smiles,struct,path, dbase_name, target_name, dock_obj=docker, write=True, recept=recept, receptor_file=receptor_file, name=name, docking_only=False)
-#            cmd.reinitialize()
-#            cmd.load(path + 'apo.pdb')
-#            cmd.do("remove (hydro)")
-#            cmd.do("save {}".format(path + '/apo.pdb'))
             interface_functions.ParameterizeOE(path)
-            
-            
             mscore = interface_functions.RunMinimization_(path, path, write=True, gpu=True)
-            if mscore <-100:
-                escore = interface_functions.RunMMGBSA_(path, path, gpu=True)
-                print(smiles, score, mscore, escore)
-            print(smiles, score, mscore)
+#            escore = interface_functions.RunMMGBSA_(path, path, gpu=True
+            print(smiles)
 
+        except KeyboardInterrupt:
+            exit()
+        except subprocess.CalledProcessError as e:
+            print("Error rank", rank, e)
+        except IndexError as e:
+            print("Error rank", rank, e)
+        except RuntimeError as e:
+            print("Error rank", rank, e)
+        with open(path + "done.txt", 'w') as f:
+            f.write("t")
+
+def worker2(df, path_root, dbase_name, target_name, docking_only=False, receptor_file=None):
+    size = comm.Get_size()
+    struct = "input/"
+    #docker,recept = interface_functions.get_receptr(receptor_file=receptor_file)
+
+
+    for pos in range(rank, len(df), size):
+        pos = pos 
+        path = df[pos]
+        try:
+            #score, res = interface_functions.RunDocking_A(smiles,struct,path, dbase_name, target_name, dock_obj=docker, write=True, re\
+#cept=recept, receptor_file=receptor_file, name=name, docking_only=False)
+
+            with open(path + "/metrics.csv", 'w') as f:
+                f.write("path\n")
+                f.write(path + "\n")
+            
+            interface_functions.ParameterizeOE(path)
+            mscore = interface_functions.RunMinimization_(path, path, write=True, gpu=True)
+#            escore = interface_functions.RunMMGBSA_(path, path, gpu=True
+#            print(smiles)
+
+            print("FINAL", mscore)
         except KeyboardInterrupt:
             exit()
         except subprocess.CalledProcessError as e:
@@ -94,9 +118,11 @@ if __name__ == '__main__':
     args = get_args()
 
     path_root = args.path
-    df = pd.read_csv(args.smiles, sep=' ', header=None)
-
+    files = glob.glob(args.smiles+ "/*/")
+    #df = pd.read_csv(args.smiles, sep=' ', header=None)
+    print(files)
     if rank == 0:
         if not os.path.exists(path_root):
             os.mkdir(path_root)
-    worker(df, path_root + "/rank", args.dbase_name, args.target_name, docking_only=args.dock_only, receptor_file=args.receptor_file)
+    
+    worker2(files, path_root + "/rank", args.dbase_name, args.target_name, docking_only=args.dock_only, receptor_file=args.receptor_file)
