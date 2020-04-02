@@ -33,7 +33,7 @@ def worker(df, path_root, dbase_name, target_name, docking_only=False, receptor_
             
             mscore = interface_functions.RunMinimization_(path, path, write=True, gpu=True)
             if mscore <-100:
-                escore = interface_functions.RunMMGBSA_(path, path, gpu=True)
+                escore = interface_functions.RunMMGBSA_(path, path, gpu=True, niter=5000)
                 print(smiles, score, mscore, escore)
             print(smiles, score, mscore)
 
