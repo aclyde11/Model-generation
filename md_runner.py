@@ -1,6 +1,5 @@
 import os
 
-from mpi4py import MPI
 import pandas as pd
 import sys
 import policy
@@ -9,47 +8,18 @@ import time
 import subprocess
 from pymol import cmd
 
-comm = MPI.COMM_WORLD
-rank = comm.Get_rank()
+world_size = os.environ['OMPI_COMM_WORLD_SIZE']
+rank = os.environ['OMPI_COMM_WORLD_RANK']
 os.environ['CUDA_VISIBLE_DEVICES'] = str(rank)
 
-def setup_server():
-    status_ = MPI.Status()
-    storage = {}
-
-    dockPolicy = policy.DockPolicy()
-    mmPolicy = policy.MinimizePolicy()
-    print("Master setup server.")
-    ts = time.time()
-    docked_count = 0
-    param_count = 0
-    while True:
-
-        data = comm.recv(source=MPI.ANY_SOURCE, tag=MPI.ANY_TAG, status=status_)
-        if len(data) == 1:  # pipeline 1
-            res = dockPolicy(*data)
-            comm.send(int(res), dest=status_.Get_source(), tag=11)
-            docked_count += 1
-        elif len(data) == 2:  # pipeline 2
-            res = mmPolicy(*data)
-            comm.send(int(res), dest=status_.Get_source(), tag=11)
-            param_count += 1
-        elif len(data) == 3:  # pipline 3
-            res = policy.mmgbsa_ns_policy(data[0], data[1], data[2])
-            comm.send(int(res), dest=status_.Get_source(), tag=11)
-        else:
-            print("got some weird data", data)
-        if time.time() - ts > 100:
-            print("current counts", docked_count, param_count)
 
 
 def worker(df, path_root, dbase_name, target_name, docking_only=False, receptor_file=None):
-    size = comm.Get_size()
     struct = "input/"
     docker,recept = interface_functions.get_receptr(receptor_file=receptor_file)
 
 
-    for pos in range(rank, df.shape[0], size):
+    for pos in range(rank, df.shape[0], world_size):
         pos, smiles, name = pos, df.iloc[pos, 0], df.iloc[pos, 1]
         path = path_root + str(pos) + "/"
         try:
