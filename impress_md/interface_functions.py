@@ -2,6 +2,7 @@ import os
 from contextlib import contextmanager
 
 import numpy as np
+from openeye import oechem
 
 
 @contextmanager
@@ -54,8 +55,6 @@ def get_receptr(receptor_file=None):
 
 
 def CanSmi(mol, isomeric, kekule):
-    from openeye import oechem
-
     oechem.OEFindRingAtomsAndBonds(mol)
     oechem.OEAssignAromaticFlags(mol, oechem.OEAroModel_OpenEye)
     smiflag = oechem.OESMILESFlag_Canonical
@@ -224,8 +223,12 @@ def RunMinimization_(build_path, outpath, one_traj=False, write=False, gpu=False
     success = True
     try:
         lig_energy = minimize.MinimizedEnergy(f'{build_path}/lig', gpu=gpu)
+        print('lig', lig_energy)
         rec_energy = minimize.MinimizedEnergy(f'{build_path}/apo', gpu=gpu)
+        print('rec_energy', rec_energy)
         com_energy = minimize.MinimizedEnergy(f'{build_path}/com', gpu=gpu)
+        print('com_energy', com_energy)
+
         diff_energy = com_energy - lig_energy - rec_energy
     except:
         success = False
@@ -299,7 +302,7 @@ def RunMMGBSA(inpath, outpath, niter=1000):
     return energies
 
 
-def RunMMGBSA_(inpath, outpath, gpu=False, niters=5000):
+def RunMMGBSA_(inpath, outpath, gpu=False, niter=1000):
     """
     1 'iteration' corresponds to 1 ps.
     """
@@ -307,7 +310,7 @@ def RunMMGBSA_(inpath, outpath, gpu=False, niters=5000):
     crds = {'lig': f'{inpath}/lig.inpcrd', 'apo': f'{inpath}/apo.inpcrd', 'com': f'{inpath}/com.inpcrd'}
     prms = {'lig': f'{inpath}/lig.prmtop', 'apo': f'{inpath}/apo.prmtop', 'com': f'{inpath}/com.prmtop'}
 
-    enthalpies = mmgbsa.simulate(crds, prms, outpath, gpu=gpu, niterations=niters)
+    enthalpies = mmgbsa.simulate(crds, prms, outpath, gpu=gpu, niters=niter)
     # enthalpies is a list of energies from each iteration
     mmgbsa.subsample(enthalpies)
     # We subsample the enthalpies using a method from John Chodera that determines the equilibration
