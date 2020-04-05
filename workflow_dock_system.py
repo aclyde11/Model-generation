@@ -20,23 +20,27 @@ if __name__ == '__main__':
     docker, recept = interface_functions.get_receptr(receptor_file=receptor_file)
 
     for pos in range(smiles_files.shape[0]):
+        print(pos)
         pos, smiles, name = pos, smiles_files.iloc[pos, 0], smiles_files.iloc[pos, 1]
         path = path_root + str(pos) + "/"
 
-        score, res = interface_functions.RunDocking_A(smiles, struct, path, dbase_name, target_name,
-                                                      dock_obj=docker, write=True, recept=recept,
-                                                      receptor_file=receptor_file, name=name, docking_only=False)
+        score, res = interface_functions.RunDocking_(smiles, struct, path, dbase_name, target_name,
+                                                      dock_obj=docker, write=False, recept=recept,
+                                                      receptor_file=receptor_file, name=name, docking_only=True)
 
-        interface_functions.ParameterizeOE(path)
-
-        mscore = interface_functions.RunMinimization_(path, path, write=True, gpu=True)
-        if mscore < -500:
-            escore = interface_functions.RunMMGBSA_(path, path, gpu=True, niters=5000) #5ns
+        # interface_functions.ParameterizeOE(path)
+        #
+        # mscore = interface_functions.RunMinimization_(path, path, write=True, gpu=True)
+        # if mscore < -500:
+        #     escore = interface_functions.RunMMGBSA_(path, path, gpu=True, niters=5000) #5ns
 
         #collect this result string
-        with open(path + "/metrics.csv") as f:
-            next(f)
-            result = next(f)
+        # with open(path + "/metrics.csv") as f:
+        #     next(f)
+        #     result = next(f)
+        print(score)
+        if pos == 10:
+            break
 
 
 
