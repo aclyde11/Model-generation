@@ -18,7 +18,12 @@ def MinimizedEnergy(filepath, gpu=False):
                                        2.0*unit.femtoseconds)
     integrator.setConstraintTolerance(0.00001)
     # TODO: This should just recognize whatever the computer is capable of, not force CUDA.
-    platform = mm.Platform.getPlatformByName('CUDA' if gpu else 'CPU')
+
+    if gpu:
+        platform = 'CUDA'
+    else:
+        platform = 'CPU'
+    platform = mm.Platform.getPlatformByName(platform)
 
     simulation = app.Simulation(prmtop.topology, system, integrator, platform)
     simulation.context.setPositions(inpcrd.positions)
@@ -62,8 +67,12 @@ def simulation(filepath, outpath, nsteps, gpu=True):
     modeller.addSolvent(forcefield, padding=1.4*unit.nanometer)
     system = forcefield.createSystem(modeller.topology, nonbondedMethod=app.PME, nonbondedCutoff=1.0*unit.nanometer,
             constraints=app.HBonds)
-    integrator = mm.LangevinIntegrator(300*unit.kelvin, 1.0/unit.picosecond, 0.002*unit.picosecond)
-    platform = mm.Platform.getPlatformByName('CUDA' if gpu else 'CPU')
+    integrator = mm.LangevinIntegrator(310.15*unit.kelvin, 1.0/unit.picosecond, 0.002*unit.picosecond)
+    if gpu:
+        platform = 'CUDA'
+    else:
+        platform = 'CPU'
+    platform = mm.Platform.getPlatformByName(platform)
     properties = {'Precision': 'double'}
     simulation = app.Simulation(modeller.topology, system, integrator, platform, properties)
     simulation.context.setPositions(modeller.positions)

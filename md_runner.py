@@ -23,20 +23,15 @@ def worker(df, path_root, dbase_name, target_name, docking_only=False, receptor_
         pos, smiles, name = pos, df.iloc[pos, 0], df.iloc[pos, 1]
         path = path_root + str(pos) + "/"
         try:
-            score, res = interface_functions.RunDocking_A(smiles,struct,path, dbase_name, target_name, dock_obj=docker, write=True, recept=recept, receptor_file=receptor_file, name=name, docking_only=False)
-#            cmd.reinitialize()
-#            cmd.load(path + 'apo.pdb')
-#            cmd.do("remove (hydro)")
-#            cmd.do("save {}".format(path + '/apo.pdb'))
+            score, res = interface_functions.RunDocking_A(smiles, struct, path, dbase_name, target_name,
+                                                          dock_obj=docker, write=False, recept=recept,
+                                                          receptor_file=receptor_file, name=name, docking_only=True)
             interface_functions.ParameterizeOE(path)
-            
-            
             mscore = interface_functions.RunMinimization_(path, path, write=True, gpu=True)
-            if mscore <-100:
-                escore = interface_functions.RunMMGBSA_(path, path, gpu=True, niter=5000)
+            print(smiles, score, mscore, escore)
+            if mscore < -500:
+                escore = interface_functions.RunMMGBSA_(path, path, gpu=True, niter=5000)  # 5n
                 print(smiles, score, mscore, escore)
-            print(smiles, score, mscore)
-
         except KeyboardInterrupt:
             exit()
         except subprocess.CalledProcessError as e:

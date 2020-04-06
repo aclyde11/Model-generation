@@ -3,6 +3,8 @@ from contextlib import contextmanager
 
 import numpy as np
 from openeye import oechem
+from . import conf_gen
+from . import dock_conf
 
 
 @contextmanager
@@ -45,11 +47,16 @@ def working_directory(directory):
 #     # oedepict.OERenderMolecule(f'{outpath}/lig.png',lig)
 
 
-def get_receptr(receptor_file=None):
+def get_receptr(receptor_file=None, has_ligand=False):
     from . import dock_conf
     from openeye import oedocking
+    if has_ligand:
+        dock_method = oedocking.OEDockMethod_Hybrid
+    else:
+        dock_method = oedocking.OEDockMethod_Chemgauss4
+
     receptor = dock_conf.PrepareReceptorFromBinary(receptor_file)
-    dock = oedocking.OEDock(oedocking.OEScoreType_Chemgauss4, oedocking.OESearchResolution_High)
+    dock = oedocking.OEDock(dock_method, oedocking.OESearchResolution_Standard)
     dock.Initialize(receptor)
     return dock, receptor
 
@@ -72,51 +79,57 @@ def CanSmi(mol, isomeric, kekule):
     smi = oechem.OECreateSmiString(mol, smiflag)
     return smi
 
-def RunDocking_(smiles, inpath, outpath, dbase_name, target_name, pos=0, receptor_file=None, write=False,
-                dock_obj=None, recept=None, name='UNK', docking_only=False):
-    from . import conf_gen
-    from . import dock_conf
 
-    if dock_obj is None:
-        dock_obj, receptor = get_receptr(inpath)
-    confs = conf_gen.SelectEnantiomer(conf_gen.FromString(smiles))
+def RunDocking_(smiles, dock_obj):
+    scores = []
+    confs = conf_gen.FromString(smiles)
+    for conf in confs:  # dock each Enantiomer
+        lig = dock_conf.DockConf_(dock_obj, conf, MAX_POSES=1)
+        scores.append(lig.GetEnergy())
 
-    dock, lig, receptor = dock_conf.DockConf(receptor_file, confs, MAX_POSES=1, dock=dock_obj)
+    # get best score from the Enantiomers
+    if len(scores) > 0:
+        bs = max(scores)
+    else:
+        bs = 0
 
-    if receptor is None:
-        receptor = recept
+    return bs
 
-    bs = dock_conf.BestDockScore(dock, lig)
-    # if write:
-    res = "{},{},{},{},{},{},{}\n".format(str(pos), name, smiles, bs, 0, dbase_name,
-                                              target_name)
-    return bs, res
+
+def RunDocking_preconf(confs, dock_obj):
+    lig = dock_conf.DockConf_(dock_obj, confs, MAX_POSES=1)
+    return lig.GetEnergy()
+
 
 def RunDocking_A(smiles, inpath, outpath, dbase_name, target_name, pos=0, receptor_file=None, write=False,
-                dock_obj=None, recept=None, name='UNK', docking_only=False):
+                 dock_obj=None, recept=None, name='UNK', docking_only=False):
     from . import conf_gen
     from . import dock_conf
     if not os.path.exists(outpath):
         os.mkdir(outpath)
     if dock_obj is None:
         dock_obj, receptor = get_receptr(inpath)
-    confs = conf_gen.SelectEnantiomer(conf_gen.FromString(smiles))
-
-    dock, lig, receptor = dock_conf.DockConf(receptor_file, confs, MAX_POSES=1, dock=dock_obj)
-
-    if receptor is None:
+    else:
         receptor = recept
 
-    bs = dock_conf.BestDockScore(dock, lig)
-    res = "{},{},{},{},{},{},{}\n".format(str(pos), name, smiles, bs, 0, dbase_name,
+    confs = conf_gen.FromString(smiles)
+    score_min = None
+    lig_min = None
+    for conf in confs:
+        lig = dock_conf.DockConf_(dock_obj, conf, MAX_POSES=1)
+        score = lig.GetEnergy()
+        if score_min is None or score < score_min:
+            score_min = score
+            lig_min = lig
+
+    res = "{},{},{},{},{},{},{}\n".format(str(pos), name, smiles, score_min, 0, dbase_name,
                                           target_name)
-    dock_conf.WriteStructures(receptor, lig, f'{outpath}/apo.pdb', f'{outpath}/lig.pdb')
+    dock_conf.WriteStructures(receptor, lig_min, f'{outpath}/apo.pdb', f'{outpath}/lig.pdb')
     with open(f'{outpath}/metrics.csv', 'w+') as metrics:
         metrics.write("name,smiles,Dock,Dock_U,dbase,target\n")
         metrics.write(res)
-    # if write:
 
-    return bs, res
+    return score_min, res
 
 
 def ParameterizeOE(path):
@@ -338,4 +351,3 @@ def RunAlchemy(path, niter=2500, nsteps_per_iter=1000, nlambda=11):
         metrics.write(dat[0].replace('\n', ',alchemy,alchemy_U\n'))
         metrics.write(dat[1].replace('\n', ',{},{}\n'.format(energy, err)))
     return energy, err
-

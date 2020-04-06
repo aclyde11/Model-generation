@@ -95,9 +95,13 @@ def DockConf(pdb_file, mol, MAX_POSES = 1, dock=None):
         dock.Initialize(receptor)
     else:
         receptor = None
+    lig = DockConf_(dock, mol, MAX_POSES=MAX_POSES)
+    return lig, receptor
+
+def DockConf_(dock, mol, MAX_POSES = 1):
     lig = oechem.OEMol()
-    err = dock.DockMultiConformerMolecule(lig,mol,MAX_POSES)
-    return dock, lig, receptor
+    _ = dock.DockMultiConformerMolecule(lig,mol,MAX_POSES)
+    return lig
 
 def WriteStructures(receptor, lig, apo_path, lig_path):
     ofs = oechem.oemolostream()

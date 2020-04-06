@@ -30,17 +30,22 @@ def simulate(inpcrd_filenames, prmtop_filenames, path, niterations=10000, implic
                  constraints=app.HBonds)
         integrator = mm.LangevinIntegrator(310.15*unit.kelvin, 1.0/unit.picoseconds, 2.0*unit.femtoseconds)
         integrator.setConstraintTolerance(0.00001)
-        
-        platform = mm.Platform.getPlatformByName('CUDA' if gpu else 'CPU')
-        # I'm not sure what the CudaDeviceIndex is about. Austin at 
-        properties = {'CudaPrecision': 'mixed', 'CudaDeviceIndex' : '0'}
+        if gpu:
+            platform = 'CUDA'
+        else:
+            platform = 'CPU'
+        platform = mm.Platform.getPlatformByName(platform)
+        if gpu:
+            properties = {'CudaPrecision': 'mixed', 'CudaDeviceIndex' : '0'}
+        else:
+            properties = {}
         simulation = app.Simulation(prmtop.topology, system, integrator, platform, properties)
         simulation.context.setPositions(inpcrd.positions)
         if phase == 'com':
             simulation.reporters.append(app.PDBReporter(path + '/' + phase + '_output.pdb', 10000))
         # Minimize & equilibrate
         simulation.minimizeEnergy()
-        simulation.context.setVelocitiesToTemperature(300*unit.kelvin)
+        simulation.context.setVelocitiesToTemperature(310.15*unit.kelvin)
         simulation.step(100)
 
         # Run simulation

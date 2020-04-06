@@ -1,7 +1,8 @@
 import sys
 from openeye import oechem, oeomega
 
-def FromMol(mol, isomer=True, num_enantiomers=1):
+
+def FromMol(mol, use_flipper=True, num_sterocenters=12, force_flipper=False):
     """
     Generates a set of conformers as an OEMol object
     Inputs:
@@ -10,42 +11,38 @@ def FromMol(mol, isomer=True, num_enantiomers=1):
         num_enantiomers is the allowable number of enantiomers. For all, set to -1
     """
     omegaOpts = oeomega.OEOmegaOptions()
-    omegaOpts.SetMaxConfs(100)
+    omegaOpts.SetMaxConfRange("200,800")
+    omegaOpts.SetRangeIncrement(8)
     omega = oeomega.OEOmega(omegaOpts)
+
     out_conf = []
-    
-    if not isomer:
+    if not use_flipper:
         ret_code = omega.Build(mol)
         if ret_code == oeomega.OEOmegaReturnCode_Success:
             out_conf.append(mol)
         else:
             oechem.OEThrow.Warning("%s: %s" % (mol.GetTitle(), oeomega.OEGetOmegaError(ret_code)))
-    
-    elif isomer:
-        for enantiomer in oeomega.OEFlipper(mol.GetActive(),6,True):
+
+    else:
+        for enantiomer in oeomega.OEFlipper(mol.GetActive(), num_sterocenters, force_flipper):
             enantiomer = oechem.OEMol(enantiomer)
             ret_code = omega.Build(enantiomer)
             if ret_code == oeomega.OEOmegaReturnCode_Success:
                 out_conf.append(enantiomer)
-                num_enantiomers -= 1
-                if num_enantiomers == 0:
-                    break
+
             else:
                 oechem.OEThrow.Warning("%s: %s" % (mol.GetTitle(), oeomega.OEGetOmegaError(ret_code)))
 
     return out_conf
 
-def FromString(smiles, isomer=True, num_enantiomers=1):
+
+def FromString(smiles, use_flipper=True, force_flipper=False, num_sterocenters=12):
     """
     Generates an set of conformers from a SMILES string
     """
     mol = oechem.OEMol()
-    if not oechem.OESmilesToMol(mol,smiles):
+    if not oechem.OESmilesToMol(mol, smiles):
         print("SMILES invalid for string", smiles)
         return None
     else:
-        return FromMol(mol,isomer,num_enantiomers)
-
-# TODO: Placeholder
-def SelectEnantiomer(mol_list):
-    return mol_list[0]
+        return FromMol(mol, use_flipper, num_sterocenters, force_flipper=False)

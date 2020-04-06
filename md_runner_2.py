@@ -78,17 +78,13 @@ def worker2(df, path_root, dbase_name, target_name, docking_only=False, receptor
         pos = pos 
         path = df[pos]
         try:
-            #score, res = interface_functions.RunDocking_A(smiles,struct,path, dbase_name, target_name, dock_obj=docker, write=True, re\
-#cept=recept, receptor_file=receptor_file, name=name, docking_only=False)
-
             with open(path + "/metrics.csv", 'w') as f:
                 f.write("path\n")
                 f.write(path + "\n")
-            
+
             interface_functions.ParameterizeOE(path)
+
             mscore = interface_functions.RunMinimization_(path, path, write=True, gpu=True)
-#            escore = interface_functions.RunMMGBSA_(path, path, gpu=True
-#            print(smiles)
 
             print("FINAL", mscore)
         except KeyboardInterrupt:
