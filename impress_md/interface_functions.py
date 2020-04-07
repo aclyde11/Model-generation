@@ -89,7 +89,7 @@ def RunDocking_(smiles, dock_obj):
 
     # get best score from the Enantiomers
     if len(scores) > 0:
-        bs = max(scores)
+        bs = min(scores)
     else:
         bs = 0
 
