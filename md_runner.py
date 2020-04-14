@@ -19,7 +19,7 @@ def worker(df, path_root, dbase_name, target_name, docking_only=False, receptor_
     docker,recept = interface_functions.get_receptr(receptor_file=receptor_file)
 
 
-    for pos in range(rank, df.shape[0], world_size):
+    for pos in range(int(rank), df.shape[0], int(world_size)):
         pos, smiles, name = pos, df.iloc[pos, 0], df.iloc[pos, 1]
         path = path_root + str(pos) + "/"
         try:
