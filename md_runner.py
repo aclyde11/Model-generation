@@ -28,7 +28,7 @@ def worker(df, path_root, dbase_name, target_name, docking_only=False, receptor_
                                                           receptor_file=receptor_file, name=name, docking_only=True)
             interface_functions.ParameterizeOE(path)
             mscore = interface_functions.RunMinimization_(path, path, write=True, gpu=True)
-            print(smiles, score, mscore, escore)
+            print(smiles, score, mscore)
             if mscore < -500:
                 escore = interface_functions.RunMMGBSA_(path, path, gpu=True, niter=5000)  # 5n
                 print(smiles, score, mscore, escore)
