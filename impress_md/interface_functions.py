@@ -83,10 +83,13 @@ def CanSmi(mol, isomeric, kekule):
 def RunDocking_(smiles, dock_obj):
     scores = []
     confs = conf_gen.FromString(smiles)
+
     for conf in confs:  # dock each Enantiomer
         lig = dock_conf.DockConf_(dock_obj, conf, MAX_POSES=1)
         scores.append(lig.GetEnergy())
-
+    ifs = oechem.oemolostream("out.sdf")
+    oechem.OEWriteMolecule(ifs, lig)
+    ifs.close()
     # get best score from the Enantiomers
     if len(scores) > 0:
         bs = min(scores)
@@ -124,7 +127,7 @@ def RunDocking_A(smiles, inpath, outpath, dbase_name, target_name, pos=0, recept
 
     res = "{},{},{},{},{},{},{}\n".format(str(pos), name, smiles, score_min, 0, dbase_name,
                                           target_name)
-    dock_conf.WriteStructures(receptor, lig_min, f'{outpath}/apo.pdb', f'{outpath}/lig.pdb')
+    dock_conf.WriteStructures(receptor, lig_min, f'{outpath}/apo.pdb', f'{outpath}/lig.pdb', f'{outpath}/com.pdb')
     with open(f'{outpath}/metrics.csv', 'w+') as metrics:
         metrics.write("name,smiles,Dock,Dock_U,dbase,target\n")
         metrics.write(res)
@@ -172,6 +175,7 @@ def ParameterizeOE(path):
         subprocess.check_output(f'tleap -f leap.in', shell=True)
 
 
+
 def ParameterizeAMBER(path):
     """
     Alternative method for parameterizing the system. It uses sqm and runs much slower than
@@ -197,6 +201,43 @@ def ParameterizeAMBER(path):
             leap.write("quit\n")
         subprocess.check_output(f'tleap -f leap.in', shell=True)
 
+
+def RunMinimizationGAFF(build_path, outpath, one_traj=False):
+    """
+    We are minimizing all three structures, then checking the potential energy using GB forcefields
+    We could, alternatively, minimize the docked structure and then extract trajectories (1 frame long),
+    more like a 1-trajectory mmgbsa.
+    output is path used in "RunDocking". It has a metric.csv file.
+    """
+    from . import minimize
+    success = True
+
+    try:
+        rec_energy = minimize.MinimizedEnergyGAFF(f'{build_path}/apo', f'{build_path}/lig', f'{build_path}/db.json', gpu=False)
+        print(rec_energy)
+        # lig_energy = minimize.MinimizedEnergyGAFF(f'{build_path}/lig', f'{build_path}/lig', f'{build_path}/db.json', gpu=False)
+        # print(lig_energy)
+        # com_energy = minimize.MinimizedEnergyGAFF(f'{build_path}/com', f'{build_path}/lig', f'{build_path}/db.json', gpu=False)
+        # print(com_energy)
+        # diff_energy = com_energy - lig_energy - rec_energy
+        # print(diff_energy)
+    except:
+        success = False
+
+    if one_traj:
+        print("1-traj calculation not ready")
+    # TODO: We could decide to do 1-trajectory mmgbsa. It would run about twice as fast as the
+    #       current method. I think it would be less accurate, but maybe not. Look into the 1-traj
+    #       method from Coveney papers if you want to implement this.
+
+    with open(f'{outpath}/metrics.csv', 'r') as metrics:
+        dat = metrics.readlines()
+    with open(f'{outpath}/metrics.csv', 'w') as metrics:
+        metrics.write(dat[0].replace('\n', ',Minimize,Minimize_U\n'))
+        if success:
+            metrics.write(dat[1].replace('\n', ',{},{}\n'.format(diff_energy, 0)))
+        else:
+            metrics.write(dat[1].replace('\n', ',NA,NA\n'))
 
 def RunMinimization(build_path, outpath, one_traj=False):
     """

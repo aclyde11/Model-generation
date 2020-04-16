@@ -15,26 +15,27 @@ if __name__ == '__main__':
     output_location = 'output_test/'
     if not os.path.exists(output_location):
         os.mkdir(output_location)
-
+    path_root = output_location + path_root
     struct = "input/"
     docker, recept = interface_functions.get_receptr(receptor_file=receptor_file)
 
     for pos in range(smiles_files.shape[0]):
-        print(pos)
         pos, smiles, name = pos, smiles_files.iloc[pos, 0], smiles_files.iloc[pos, 1]
         path = path_root + str(pos) + "/"
+        print(pos, smiles, name, path_root, path)
 
-        score, res = interface_functions.RunDocking_A(smiles, struct, path, dbase_name, target_name,
-                                                      dock_obj=docker, write=False, recept=recept,
-                                                      receptor_file=receptor_file, name=name, docking_only=True)
+        # score, res = interface_functions.RunDocking_A(smiles, struct, path, dbase_name, target_name,
+        #                                               dock_obj=docker, write=False, recept=recept,
+        #                                               receptor_file=receptor_file, name=name, docking_only=True)
+        interface_functions.RunMinimizationGAFF(path, path)
+        break
+        # interface_functions.ParameterizeOE(path)
 
-        interface_functions.ParameterizeOE(path)
-
-        print("here")
-
-        mscore = interface_functions.RunMinimization_(path, path, write=True, gpu=True)
-        if mscore < -500:
-            escore = interface_functions.RunMMGBSA_(path, path, gpu=True, niter=5000) #5ns
+        # print("here")
+        #
+        # mscore = interface_functions.RunMinimization_(path, path, write=True, gpu=False)
+        # if mscore < -500:
+        # escore = interface_functions.RunMMGBSA_(path, path, gpu=True, niter=5000) #5ns
 
         # collect this result string
         # with open(path + "/metrics.csv") as f:

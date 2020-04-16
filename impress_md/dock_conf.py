@@ -103,7 +103,7 @@ def DockConf_(dock, mol, MAX_POSES = 1):
     _ = dock.DockMultiConformerMolecule(lig,mol,MAX_POSES)
     return lig
 
-def WriteStructures(receptor, lig, apo_path, lig_path):
+def WriteStructures(receptor, lig, apo_path, lig_path, complex_path):
     ofs = oechem.oemolostream()
     success = True
     if ofs.open(apo_path):
@@ -111,10 +111,14 @@ def WriteStructures(receptor, lig, apo_path, lig_path):
         ofs.close()
     else:
         success = False
-    # TODO: If MAX_POSES != 1, we should select the top pose to save
-    conf = list(lig.GetConfs())[0]
     if ofs.open(lig_path):
-        oechem.OEWriteMolecule(ofs,conf)
+        oechem.OEWriteMolecule(ofs,lig)
+        ofs.close()
+    else:
+        success = False
+    if ofs.open(complex_path):
+        oechem.OEWriteMolecule(ofs, receptor)
+        oechem.OEWriteMolecule(ofs, lig)
         ofs.close()
     else:
         success = False

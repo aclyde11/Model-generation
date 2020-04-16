@@ -1,6 +1,85 @@
 from simtk.openmm import app
 import simtk.openmm as mm
-from simtk import unit
+from simtk import unit, openmm
+from openforcefield.topology import Molecule
+from openmmforcefields.generators import SystemGenerator
+
+
+def MinimizedEnergyGAFF(filepath, ligand_path, cache, gpu=False):
+    water_model = 'tip3p'
+    solvent_padding = 10.0 * unit.angstrom
+    box_size = openmm.vec3.Vec3(3.4, 3.4, 3.4) * unit.nanometers
+    ionic_strength = 100 * unit.millimolar  # 100
+    pressure = 1.0 * unit.atmospheres
+    collision_rate = 91.0 / unit.picoseconds
+    temperature = 310.15 * unit.kelvin
+    timestep = 4.0 * unit.femtoseconds
+    nsteps_per_iteration = 250
+    iterations = 1000
+    protein_forcefield = 'amber14/protein.ff14SB.xml'
+    small_molecule_forcefield = 'gaff-2.11' # only if you really like atomtypes
+    solvation_forcefield = 'amber14/tip3p.xml'
+
+
+    off_molecule = Molecule.from_file(f'{ligand_path}.pdb')
+
+    barostat = openmm.MonteCarloBarostat(pressure, temperature)
+
+    common_kwargs = {'removeCMMotion': True, 'ewaldErrorTolerance': 5e-04,
+                     'nonbondedMethod': app.PME, 'hydrogenMass': 3.0 * unit.amu}
+    # unconstrained_kwargs = {'constraints': None, 'rigidWater': False}
+    constrained_kwargs = {'constraints': app.HBonds, 'rigidWater': True}
+    forcefields = [protein_forcefield, solvation_forcefield]
+
+    openmm_system_generator = SystemGenerator(forcefields=forcefields,
+                                              molecules=[off_molecule],
+                                              small_molecule_forcefield=small_molecule_forcefield, cache=cache,
+                                              barostat=barostat,
+                                              forcefield_kwargs={**common_kwargs, **constrained_kwargs})
+
+    with open(f'{filepath}.pdb', 'r') as infile:
+        lines = [line for line in infile if 'UNK' not in line]
+    from io import StringIO
+    pdbfile_stringio = StringIO(''.join(lines))
+
+    # Read the unsolvated system into an OpenMM Topology
+    pdbfile = app.PDBFile(pdbfile_stringio)
+    topology, positions = pdbfile.topology, pdbfile.positions
+
+    print('Adding solvent...')
+    modeller = app.Modeller(topology, positions)
+    kwargs = {'padding': solvent_padding}
+    modeller.addHydrogens(openmm_system_generator.forcefield)
+    modeller.addSolvent(openmm_system_generator.forcefield, model='tip3p', ionicStrength=ionic_strength, **kwargs)
+    print('Building system...')
+
+    # Create an OpenMM system
+    system = openmm_system_generator.create_system(modeller.topology)
+    print("system made")
+    if gpu:
+        platform = openmm.Platform.getPlatformByName('CUDA')
+        platform.setPropertyDefaultValue('Precision', 'mixed')
+    else:
+        platform = openmm.Platform.getPlatformByName('CPU')
+
+    integrator = openmm.LangevinIntegrator(temperature, collision_rate, timestep)
+    integrator.setConstraintTolerance(0.00001)
+    simulation = app.Simulation(modeller.topology, system, integrator, platform=platform)
+    simulation.context.setPositions(modeller.positions)
+    print("wr")
+
+    simulation.minimizeEnergy()
+    simulation.context.setVelocitiesToTemperature(310.15 * unit.kelvin)
+    simulation.step(100)
+    simulation.reporters.append(app.PDBReporter(f'{filepath}_output.pdb', 100))
+
+    simulation.step(5000)
+
+    energy = simulation.context.getState(getEnergy=True).getPotentialEnergy().value_in_unit(unit.kilojoule / unit.mole)
+    with open(f'{filepath}.state', 'w') as f:
+        simulation.saveState(f)
+    return energy
+
 
 def MinimizedEnergy(filepath, gpu=False):
     prmtop = app.AmberPrmtopFile(f'{filepath}.prmtop')
