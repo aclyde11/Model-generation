@@ -98,12 +98,17 @@ def DockConf(pdb_file, mol, MAX_POSES = 1, dock=None):
     lig = DockConf_(dock, mol, MAX_POSES=MAX_POSES)
     return lig, receptor
 
-def DockConf_(dock, mol, MAX_POSES = 1):
-    lig = oechem.OEMol()
-    _ = dock.DockMultiConformerMolecule(lig,mol,MAX_POSES)
+def DockConf_(dock, mol, lig, MAX_POSES = 1, receptor_filename="Not Available"):
+    err = dock.DockMultiConformerMolecule(lig,mol,MAX_POSES)
+    if (err != oedocking.OEDockingReturnCode_Success):
+        print("Docking Failed with error code " + oedocking.OEDockingReturnCodeGetName(err))
+    sdtag = dock.GetName()
+    oedocking.OESetSDScore(lig, dock, sdtag)
+    dock.AnnotatePose(lig)
+    oechem.OESetSDData(lig, "receptor", receptor_filename)
     return lig
 
-def WriteStructures(receptor, lig, apo_path, lig_path):
+def WriteStructures(receptor, lig, apo_path, lig_path, com_path=None, oe=False):
     ofs = oechem.oemolostream()
     success = True
     if ofs.open(apo_path):
@@ -112,12 +117,39 @@ def WriteStructures(receptor, lig, apo_path, lig_path):
     else:
         success = False
     # TODO: If MAX_POSES != 1, we should select the top pose to save
-    conf = list(lig.GetConfs())[0]
     if ofs.open(lig_path):
-        oechem.OEWriteMolecule(ofs,conf)
+        oechem.OEWriteMolecule(ofs,lig)
         ofs.close()
     else:
         success = False
+
+    if com_path is not None and ofs.open(com_path):
+        oechem.OEWriteMolecule(ofs, receptor)
+        oechem.OEWriteMolecule(ofs, lig)
+        ofs.close()
+
+
+    if oe:
+        import re
+        ofs = oechem.oemolostream()
+        success = True
+        if ofs.open(re.sub(".pdb", ".oeb", apo_path)):
+            oechem.OEWriteMolecule(ofs, receptor)
+            ofs.close()
+        else:
+            success = False
+        # TODO: If MAX_POSES != 1, we should select the top pose to save
+        if ofs.open(re.sub(".pdb", ".oeb", lig_path)):
+            oechem.OEWriteMolecule(ofs, lig)
+            ofs.close()
+        else:
+            success = False
+
+        if com_path is not None and ofs.open(re.sub(".pdb", ".oeb", com_path)):
+            oechem.OEWriteMolecule(ofs, receptor)
+            oechem.OEWriteMolecule(ofs, lig)
+            ofs.close()
+
     return success
 
 ### Returns an array of length MAX_POSES from above. This is the range of scores

@@ -56,7 +56,7 @@ def get_receptr(receptor_file=None, has_ligand=False):
         dock_method = oedocking.OEDockMethod_Chemgauss4
 
     receptor = dock_conf.PrepareReceptorFromBinary(receptor_file)
-    dock = oedocking.OEDock(dock_method, oedocking.OESearchResolution_Standard)
+    dock = oedocking.OEDock(dock_method, oedocking.OESearchResolution_High)
     dock.Initialize(receptor)
     return dock, receptor
 
@@ -85,7 +85,7 @@ def RunDocking_(smiles, dock_obj):
     confs = conf_gen.FromString(smiles)
     for conf in confs:  # dock each Enantiomer
         lig = dock_conf.DockConf_(dock_obj, conf, MAX_POSES=1)
-        scores.append(lig.GetEnergy())
+        scores.append(dock_obj.ScoreLigand(lig))
 
     # get best score from the Enantiomers
     if len(scores) > 0:
@@ -102,7 +102,7 @@ def RunDocking_preconf(confs, dock_obj):
 
 
 def RunDocking_A(smiles, inpath, outpath, dbase_name, target_name, pos=0, receptor_file=None, write=False,
-                 dock_obj=None, recept=None, name='UNK', docking_only=False):
+                 dock_obj=None, recept=None, name='UNK', docking_only=False, oe=False):
     from . import conf_gen
     from . import dock_conf
     if not os.path.exists(outpath):
@@ -113,18 +113,22 @@ def RunDocking_A(smiles, inpath, outpath, dbase_name, target_name, pos=0, recept
         receptor = recept
 
     confs = conf_gen.FromString(smiles)
-    score_min = None
-    lig_min = None
+    scores = []
+    ligs = []
     for conf in confs:
-        lig = dock_conf.DockConf_(dock_obj, conf, MAX_POSES=1)
-        score = lig.GetEnergy()
-        if score_min is None or score < score_min:
-            score_min = score
-            lig_min = lig
+        lig = oechem.OEMol()
+        dock_conf.DockConf_(dock_obj, conf, lig, MAX_POSES=1, receptor_filename=receptor_file)
+        score = dock_obj.ScoreLigand(lig)
+        ligs.append(lig)
+        scores.append(score)
+    mins = np.argmin(scores)
+    score_min = scores[mins]
+    lig_min = ligs[mins]
 
+    lig_min.SetTitle(name)
     res = "{},{},{},{},{},{},{}\n".format(str(pos), name, smiles, score_min, 0, dbase_name,
                                           target_name)
-    dock_conf.WriteStructures(receptor, lig_min, f'{outpath}/apo.pdb', f'{outpath}/lig.pdb')
+    dock_conf.WriteStructures(receptor, lig_min, f'{outpath}/apo.pdb', f'{outpath}/lig.pdb', f'{outpath}/com.pdb', oe=oe)
     with open(f'{outpath}/metrics.csv', 'w+') as metrics:
         metrics.write("name,smiles,Dock,Dock_U,dbase,target\n")
         metrics.write(res)

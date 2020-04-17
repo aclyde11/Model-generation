@@ -1,15 +1,11 @@
 import os
 
 import pandas as pd
-import sys
-import policy
 from impress_md import interface_functions
-import time
 import subprocess
-from pymol import cmd
 
 world_size = os.environ['OMPI_COMM_WORLD_SIZE']
-rank = os.environ['OMPI_COMM_WORLD_RANK']
+rank = int(os.environ['OMPI_COMM_WORLD_RANK'])
 os.environ['CUDA_VISIBLE_DEVICES'] = str(rank)
 
 
@@ -55,7 +51,6 @@ def get_args():
     return parser.parse_args()
 
 if __name__ == '__main__':
-    import os
     args = get_args()
 
     path_root = args.path
