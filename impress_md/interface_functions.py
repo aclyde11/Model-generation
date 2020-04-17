@@ -80,7 +80,7 @@ def CanSmi(mol, isomeric, kekule):
     return smi
 
 
-def RunDocking_(smiles, dock_obj):
+def RunDocking_(smiles, dock_obj, pos=None, name=None, target_name=None):
     scores = []
     confs = conf_gen.FromString(smiles)
     for conf in confs:  # dock each Enantiomer
@@ -92,7 +92,8 @@ def RunDocking_(smiles, dock_obj):
         bs = min(scores)
     else:
         bs = 0
-
+    res = "{},{},{},{},{}\n".format(str(pos), name, smiles, bs,target_name)
+    print(res)
     return bs
 
 
