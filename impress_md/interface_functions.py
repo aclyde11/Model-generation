@@ -93,8 +93,7 @@ def RunDocking_(smiles, dock_obj, pos=None, name=None, target_name=None):
     else:
         bs = 0
     res = "{},{},{},{},{}\n".format(str(pos), name, smiles, bs,target_name)
-    print(res)
-    return bs
+    return bs, res
 
 
 def RunDocking_preconf(confs, dock_obj):
