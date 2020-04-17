@@ -50,10 +50,10 @@ def working_directory(directory):
 def get_receptr(receptor_file=None, has_ligand=False):
     from . import dock_conf
     from openeye import oedocking
-    if has_ligand:
-        dock_method = oedocking.OEDockMethod_Hybrid
-    else:
-        dock_method = oedocking.OEDockMethod_Chemgauss4
+    # if has_ligand:
+    #     dock_method = oedocking.OEDockMethod_Hybrid
+    # else:
+    dock_method = oedocking.OEDockMethod_Chemgauss4
 
     receptor = dock_conf.PrepareReceptorFromBinary(receptor_file)
     dock = oedocking.OEDock(dock_method, oedocking.OESearchResolution_High)
