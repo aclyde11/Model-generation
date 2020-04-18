@@ -84,7 +84,8 @@ def RunDocking_(smiles, dock_obj, pos=None, name=None, target_name=None):
     scores = []
     confs = conf_gen.FromString(smiles)
     for conf in confs:  # dock each Enantiomer
-        lig = dock_conf.DockConf_(dock_obj, conf, MAX_POSES=1)
+        lig = oechem.OEMol()
+        dock_conf.DockConf_(dock_obj, conf, lig, MAX_POSES=1)
         scores.append(dock_obj.ScoreLigand(lig))
 
     # get best score from the Enantiomers
