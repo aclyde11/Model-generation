@@ -89,6 +89,9 @@ def RunDocking_(smiles: str, dock_obj: oedocking.OEDock, pos: int = None, name: 
     ligands = []
 
     confs = conf_gen.FromString(smiles, force_flipper=force_flipper)
+    if confs is None or len(confs) == 0:
+        return None, None, None
+
     for conf in confs:  # dock each Enantiomer
         lig = oechem.OEMol()
         dock_conf.DockConf_(dock_obj, conf, lig, MAX_POSES=1)
@@ -103,46 +106,52 @@ def RunDocking_(smiles: str, dock_obj: oedocking.OEDock, pos: int = None, name: 
 
         dockMethod = dock_obj.GetName()
         oedocking.OESetSDScore(ligand_min, dock_obj, dockMethod)
-        oechem.OESetSDData(ligand_min, 'ReceptorName', target_name)
-        oechem.OESetSDData(ligand_min, 'Name', name)
+        ligand_min.SetTitle(name)
     else:
-        score_min = float(np.inf)
-        ligand_min = None
+        return None, None, None
 
     res = "{},{},{},{},{}\n".format(str(pos), name, smiles, target_name, score_min)
     return score_min, res, ligand_min
 
-def RunDocking_A(smiles, inpath, outpath, dbase_name, target_name, pos=0, receptor_file=None, write=False,
-                 dock_obj=None, recept=None, name='UNK', docking_only=False, oe=False):
+def RunDocking_A(smiles, inpath, outpath, target_name,  dock_obj=None, pos=0,
+                  name='UNK', oe=False, force_flipper=True, receptor=None):
     from . import conf_gen
     from . import dock_conf
     if not os.path.exists(outpath):
         os.mkdir(outpath)
-    if dock_obj is None:
-        dock_obj, receptor = get_receptor(inpath)
-    else:
-        receptor = recept
 
-    confs = conf_gen.FromString(smiles)
+    confs = conf_gen.FromString(smiles, force_flipper=force_flipper)
+    if confs is None or len(confs) == 0:
+        return None, None
+
     scores = []
-    ligs = []
-    for conf in confs:
+    ligands = []
+    for conf in confs:  # dock each Enantiomer
         lig = oechem.OEMol()
-        dock_conf.DockConf_(dock_obj, conf, lig, MAX_POSES=1, receptor_filename=receptor_file)
-        score = dock_obj.ScoreLigand(lig)
-        ligs.append(lig)
-        scores.append(score)
-    mins = np.argmin(scores)
-    score_min = scores[mins]
-    lig_min = ligs[mins]
+        dock_conf.DockConf_(dock_obj, conf, lig, MAX_POSES=1)
+        scores.append(dock_obj.ScoreLigand(lig))
+        ligands.append(lig)
 
-    lig_min.SetTitle(name)
-    res = "{},{},{},{},{},{},{}\n".format(str(pos), name, smiles, score_min, 0, dbase_name,
-                                          target_name)
-    dock_conf.WriteStructures(receptor, lig_min, f'{outpath}/apo.pdb', f'{outpath}/lig.pdb', f'{outpath}/com.pdb',
+    # get best score from the Enantiomers
+    if len(scores) > 0:
+        bs = np.argmin(scores)
+        score_min = scores[bs]
+        ligand_min = ligands[bs]
+
+        dockMethod = dock_obj.GetName()
+        oedocking.OESetSDScore(ligand_min, dock_obj, dockMethod)
+        ligand_min.SetTitle(name)
+    else:
+        return None, None
+
+    ligand_min.SetTitle(name)
+    res = "{},{},{},{},{}\n".format(str(pos), name, smiles, score_min,target_name)
+
+
+    dock_conf.WriteStructures(receptor, ligand_min, f'{outpath}/apo.pdb', f'{outpath}/lig.pdb', f'{outpath}/com.pdb',
                               oe=oe)
     with open(f'{outpath}/metrics.csv', 'w+') as metrics:
-        metrics.write("name,smiles,Dock,Dock_U,dbase,target\n")
+        metrics.write("pos,name,smiles,Dock,receptor\n")
         metrics.write(res)
 
     return score_min, res
