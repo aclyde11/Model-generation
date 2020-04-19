@@ -16,22 +16,15 @@ def FromMol(mol, use_flipper=True, num_sterocenters=12, force_flipper=False):
     omega = oeomega.OEOmega(omegaOpts)
 
     out_conf = []
-    if not use_flipper:
-        ret_code = omega.Build(mol)
+
+    for enantiomer in oeomega.OEFlipper(mol.GetActive(), num_sterocenters, force_flipper):
+        enantiomer = oechem.OEMol(enantiomer)
+        ret_code = omega.Build(enantiomer)
         if ret_code == oeomega.OEOmegaReturnCode_Success:
-            out_conf.append(mol)
+            out_conf.append(enantiomer)
+
         else:
             oechem.OEThrow.Warning("%s: %s" % (mol.GetTitle(), oeomega.OEGetOmegaError(ret_code)))
-
-    else:
-        for enantiomer in oeomega.OEFlipper(mol.GetActive(), num_sterocenters, force_flipper):
-            enantiomer = oechem.OEMol(enantiomer)
-            ret_code = omega.Build(enantiomer)
-            if ret_code == oeomega.OEOmegaReturnCode_Success:
-                out_conf.append(enantiomer)
-
-            else:
-                oechem.OEThrow.Warning("%s: %s" % (mol.GetTitle(), oeomega.OEGetOmegaError(ret_code)))
 
     return out_conf
 
@@ -45,4 +38,4 @@ def FromString(smiles, use_flipper=True, force_flipper=False, num_sterocenters=1
         print("SMILES invalid for string", smiles)
         return None
     else:
-        return FromMol(mol, use_flipper, num_sterocenters, force_flipper=False)
+        return FromMol(mol, use_flipper, num_sterocenters, force_flipper=force_flipper)

@@ -2,7 +2,7 @@ import os
 from contextlib import contextmanager
 
 import numpy as np
-from openeye import oechem
+from openeye import oechem, oedocking
 from . import conf_gen
 from . import dock_conf
 
@@ -17,51 +17,42 @@ def working_directory(directory):
         os.chdir(owd)
 
 
-# def RunDocking(smiles, inpath, outpath, padding=4):
-#     from . import conf_gen
-#     from . import dock_conf
-#     if not os.path.exists(outpath):
-#         os.mkdir(outpath)
-#     confs = conf_gen.SelectEnantiomer(conf_gen.FromString(smiles))
-#     # This receptor can be pre-compiled to an oeb. It speeds things up
-#     filename, file_extension = os.path.splitext(inpath)
-#     # if file_extension == ".oeb":
-#     #    receptor = dock_conf.PrepareReceptorFromBinary(inpath)
-#     # else: # else it is a pdb
-#     #    receptor = dock_conf.PrepareReceptor(inpath,padding,outpath)
-#
-#     dock, lig, receptor = dock_conf.DockConf("input/receptor.oeb", confs, MAX_POSES=1)
-#
-#     # Currently we generate 200 conformers for each ligand, but only take
-#     #   the best pose, as scored by Openeye. It may be useful to consider
-#     #   something about the range of poses.
-#
-#     dock_conf.WriteStructures(receptor, lig, f'{outpath}/apo.pdb', f'{outpath}/lig.pdb')
-#     with open(f'{outpath}/metrics.csv', 'w+') as metrics:
-#         metrics.write("Dock,Dock_U\n")
-#         metrics.write("{},{}\n".format(dock_conf.BestDockScore(dock, lig), 0))
-#     # # If you uncomment the three lines below, it will save an image of the 2D
-#     #   molecule. This is useful as a sanity check.
-#     # from openeye import oedepict
-#     # oedepict.OEPrepareDepiction(lig)
-#     # oedepict.OERenderMolecule(f'{outpath}/lig.png',lig)
+def get_receptor(receptor_file=None, use_hybrid=True, high_resolution=True):
+    """
 
-
-def get_receptr(receptor_file=None, has_ligand=False):
+    :param receptor_file: file to .oeb or oeb.gz with prepared protein receptor
+    :param use_hybrid: whether or not to override using hybrid docking method
+    :param high_resolution: set resolution for search
+    :return: docking objector from OE, the receptor oemol
+    """
     from . import dock_conf
     from openeye import oedocking
-    if has_ligand:
+
+    receptor = dock_conf.PrepareReceptorFromBinary(receptor_file)
+
+    if oedocking.OEReceptorHasBoundLigand(receptor) and use_hybrid:
         dock_method = oedocking.OEDockMethod_Hybrid
     else:
         dock_method = oedocking.OEDockMethod_Chemgauss4
 
-    receptor = dock_conf.PrepareReceptorFromBinary(receptor_file)
-    dock = oedocking.OEDock(dock_method, oedocking.OESearchResolution_High)
+    if high_resolution:
+        reso = oedocking.OESearchResolution_High
+    else:
+        reso = oedocking.OESearchResolution_Default
+
+    dock = oedocking.OEDock(dock_method, reso)
     dock.Initialize(receptor)
     return dock, receptor
 
 
 def CanSmi(mol, isomeric, kekule):
+    """
+    Returns the cannonical smile from the OEMol provided
+    :param mol: OEMolBase object
+    :param isomeric: force isometric
+    :param kekule: use kekule cleaning
+    :return: string of OESmiles
+    """
     oechem.OEFindRingAtomsAndBonds(mol)
     oechem.OEAssignAromaticFlags(mol, oechem.OEAroModel_OpenEye)
     smiflag = oechem.OESMILESFlag_Canonical
@@ -80,27 +71,46 @@ def CanSmi(mol, isomeric, kekule):
     return smi
 
 
-def RunDocking_(smiles, dock_obj, pos=None, name=None, target_name=None):
+def RunDocking_(smiles: str, dock_obj: oedocking.OEDock, pos: int = None, name: str = None, target_name: str = None, force_flipper: bool = True) -> object:
+    """
+
+    :param smiles: a str representing the molecule (SMILES)
+    :param dock_obj: The OEDock prepared receptor
+    :param pos: int for print string
+    :param name: name of ligand for printing string
+    :param target_name: name of target from docking
+    :param force_flipper: whether or not to flip entamiers when generating conformers
+    :return: score, string result, ligand
+    """
+    if not dock_obj.IsInitialized():
+        assert(False)
+
     scores = []
-    confs = conf_gen.FromString(smiles)
+    ligands = []
+
+    confs = conf_gen.FromString(smiles, force_flipper=force_flipper)
     for conf in confs:  # dock each Enantiomer
         lig = oechem.OEMol()
         dock_conf.DockConf_(dock_obj, conf, lig, MAX_POSES=1)
         scores.append(dock_obj.ScoreLigand(lig))
+        ligands.append(lig)
 
     # get best score from the Enantiomers
     if len(scores) > 0:
-        bs = min(scores)
+        bs = np.argmin(scores)
+        score_min = scores[bs]
+        ligand_min = ligands[bs]
+
+        dockMethod = dock_obj.GetName()
+        oedocking.OESetSDScore(ligand_min, dock_obj, dockMethod)
+        oechem.OESetSDData(ligand_min, 'ReceptorName', target_name)
+        oechem.OESetSDData(ligand_min, 'Name', name)
     else:
-        bs = 0
-    res = "{},{},{},{},{}\n".format(str(pos), name, smiles, bs,target_name)
-    return bs, res
+        score_min = float(np.inf)
+        ligand_min = None
 
-
-def RunDocking_preconf(confs, dock_obj):
-    lig = dock_conf.DockConf_(dock_obj, confs, MAX_POSES=1)
-    return lig.GetEnergy()
-
+    res = "{},{},{},{},{}\n".format(str(pos), name, smiles, target_name, score_min)
+    return score_min, res, ligand_min
 
 def RunDocking_A(smiles, inpath, outpath, dbase_name, target_name, pos=0, receptor_file=None, write=False,
                  dock_obj=None, recept=None, name='UNK', docking_only=False, oe=False):
@@ -109,7 +119,7 @@ def RunDocking_A(smiles, inpath, outpath, dbase_name, target_name, pos=0, recept
     if not os.path.exists(outpath):
         os.mkdir(outpath)
     if dock_obj is None:
-        dock_obj, receptor = get_receptr(inpath)
+        dock_obj, receptor = get_receptor(inpath)
     else:
         receptor = recept
 
@@ -129,7 +139,8 @@ def RunDocking_A(smiles, inpath, outpath, dbase_name, target_name, pos=0, recept
     lig_min.SetTitle(name)
     res = "{},{},{},{},{},{},{}\n".format(str(pos), name, smiles, score_min, 0, dbase_name,
                                           target_name)
-    dock_conf.WriteStructures(receptor, lig_min, f'{outpath}/apo.pdb', f'{outpath}/lig.pdb', f'{outpath}/com.pdb', oe=oe)
+    dock_conf.WriteStructures(receptor, lig_min, f'{outpath}/apo.pdb', f'{outpath}/lig.pdb', f'{outpath}/com.pdb',
+                              oe=oe)
     with open(f'{outpath}/metrics.csv', 'w+') as metrics:
         metrics.write("name,smiles,Dock,Dock_U,dbase,target\n")
         metrics.write(res)

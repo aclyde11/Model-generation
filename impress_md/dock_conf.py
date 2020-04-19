@@ -80,10 +80,11 @@ def PrepareReceptor(pdb,padding=4,outpath=""):
 
 def PrepareReceptorFromBinary(filename):
     """
-    If a receptor.oeb has been created, use this version.
-    If not, run 'PrepareReceptor' and a receptor.oeb will be created.
+    Gets receptor
+    :param filename: file name of .oeb or .oeb.gz of prepared receptor for OE
+    :return: OEMol receptor for docking
     """
-    receptor = oechem.OEGraphMol()
+    receptor = oechem.OEMol()
     oedocking.OEReadReceptorFile(receptor,filename)
     return receptor
 
