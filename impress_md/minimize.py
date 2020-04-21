@@ -2,9 +2,10 @@ from simtk.openmm import app
 import simtk.openmm as mm
 from simtk import unit
 
-def MinimizedEnergy(filepath):
+def MinimizedEnergy(filepath, gpu=False):
     prmtop = app.AmberPrmtopFile(f'{filepath}.prmtop')
     inpcrd = app.AmberInpcrdFile(f'{filepath}.inpcrd')
+    print(f'{filepath}.prmtop')
     system = prmtop.createSystem(implicitSolvent=app.GBn2,
                                  nonbondedMethod=app.CutoffNonPeriodic,
                                  nonbondedCutoff=1.0*unit.nanometers,
@@ -12,15 +13,18 @@ def MinimizedEnergy(filepath):
                                  rigidWater=True,
                                  ewaldErrorTolerance=0.0005)
 
-    integrator = mm.LangevinIntegrator(300*unit.kelvin,
+    integrator = mm.LangevinIntegrator(310.15*unit.kelvin,
                                        1.0/unit.picoseconds,
                                        2.0*unit.femtoseconds)
     integrator.setConstraintTolerance(0.00001)
     # TODO: This should just recognize whatever the computer is capable of, not force CUDA.
-    platform = mm.Platform.getPlatformByName('CUDA')
-    # TODO: I am not sure if mixed precision is necessary. It dramatically changes the results.
-    properties = {'CudaPrecision': 'mixed'}
-    
+
+    if gpu:
+        platform = 'CUDA'
+    else:
+        platform = 'CPU'
+    platform = mm.Platform.getPlatformByName(platform)
+
     simulation = app.Simulation(prmtop.topology, system, integrator, platform)
     simulation.context.setPositions(inpcrd.positions)
     
@@ -55,7 +59,7 @@ def MinimizedEnergy(filepath):
 #     energy = simulation.context.getState(getEnergy=True).getPotentialEnergy().value_in_unit(unit.kilojoule / unit.mole)
 #     return energy
 
-def simulation(filepath, outpath, nsteps):
+def simulation(filepath, outpath, nsteps, gpu=True):
     prmtop = app.AmberPrmtopFile(f'{filepath}.prmtop')
     inpcrd = app.AmberInpcrdFile(f'{filepath}.inpcrd')
     forcefield = app.ForceField('amber14-all.xml', 'amber14/tip3p.xml')
@@ -63,8 +67,12 @@ def simulation(filepath, outpath, nsteps):
     modeller.addSolvent(forcefield, padding=1.4*unit.nanometer)
     system = forcefield.createSystem(modeller.topology, nonbondedMethod=app.PME, nonbondedCutoff=1.0*unit.nanometer,
             constraints=app.HBonds)
-    integrator = mm.LangevinIntegrator(300*unit.kelvin, 1.0/unit.picosecond, 0.002*unit.picosecond)
-    platform = mm.Platform.getPlatformByName('CUDA')
+    integrator = mm.LangevinIntegrator(310.15*unit.kelvin, 1.0/unit.picosecond, 0.002*unit.picosecond)
+    if gpu:
+        platform = 'CUDA'
+    else:
+        platform = 'CPU'
+    platform = mm.Platform.getPlatformByName(platform)
     properties = {'Precision': 'double'}
     simulation = app.Simulation(modeller.topology, system, integrator, platform, properties)
     simulation.context.setPositions(modeller.positions)

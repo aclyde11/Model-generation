@@ -1,3 +1,72 @@
+
+
+# Docking
+ The smiles input file should have a column that matches something like SMILES or smiles, and a name column that matches something like ID, CID, TITLE, NAME etc (case doesn't matter). -n will control number of workers to run, default is 1 (single threaded). -v will print somethings to screen while it runs. The output file format is automatically detected. SDF recomended. Use convert.py or sdsorter.py to sort or manage that conversion after docking.
+```shell script
+python docking.py -i my_smiles.csv -o results.{sdf, csv} -n 1 -r recetor.oeb -v 
+```
+
+```shell script
+python convert.py -i input.sdf -o output.csv
+```
+
+```shell script
+python sdsort.py -i input.sdf -o output.sdf -t "FRED Chemgauss4 Score"
+```
+
+#### Don't rec venturing below this
+
+# COVID WORK TO DO 
+
+Hello,
+
+Major work items are creating a robust workflow for the giga-docking. Please make sure you're on the vcovid branch
+
+
+Look at the function in the inferface_function file called Run_Docking_
+The arguments are as follows:
+
+There are two options to run.
+
+Preload the docking receptor 
+
+smiles -- a string of the smiles
+inpath -- a receptor file which will be provided as oeb
+dbase_name -- a string which is the name of the dbase run where the smiles comes
+target_name -- a string which is the name of the target 
+pos=0 --file string index position of the thing
+receptor_file=None -- a receptor file which will be provided as oeb 
+dock_obj=None -- the dock obj is you are precomputing it
+recept=None -- the receptor object if you are precomputing it
+name='UNK'
+docking_only=False
+ 
+Do not preload the docking receptor 
+smiles -- a string of the smiles
+inpath -- a receptor file which will be provided as oeb
+dbase_name -- a string which is the name of the dbase run where the smiles comes
+target_name -- a string which is the name of the target 
+pos=0 -- file string index position of the thing
+receptor_file=None -- a receptor file which will be provided as oeb 
+dock_obj=None -- the dock obj is you are precomputing it
+recept=None -- the receptor object if you are precomputing it
+name='UNK'
+docking_only=False
+
+
+## INTERFACE
+
+a list of receptor file .oeb, and a csv of smiles. 
+
+receptor file on one axis
+smiles on the other. 
+
+
+So in the folder input, take the enamine_diverse.smi and the swiss_plpro.oeb. Test on those. Sorry if my recent changes broke this code, but should be easy to fix.
+
+Taake a look at theta dock to see how this works.
+---------
+
 This runs of x86 ONLY for the moment. 
 
 Build the conda enviroment using the yml file or just run stuff and figure out how to make it work (it's not rocket science ;)
