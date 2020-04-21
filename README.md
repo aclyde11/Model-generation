@@ -1,3 +1,21 @@
+
+
+# Docking
+ The smiles input file should have a column that matches something like SMILES or smiles, and a name column that matches something like ID, CID, TITLE, NAME etc (case doesn't matter). -n will control number of workers to run, default is 1 (single threaded). -v will print somethings to screen while it runs. The output file format is automatically detected. SDF recomended. Use convert.py or sdsorter.py to sort or manage that conversion after docking.
+```shell script
+python docking.py -i my_smiles.csv -o results.{sdf, csv} -n 1 -r recetor.oeb -v 
+```
+
+```shell script
+python convert.py -i input.sdf -o output.csv
+```
+
+```shell script
+python sdsort.py -i input.sdf -o output.sdf -t "FRED Chemgauss4 Score"
+```
+
+#### Don't rec venturing below this
+
 # COVID WORK TO DO 
 
 Hello,
