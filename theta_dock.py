@@ -6,8 +6,8 @@ from impress_md import interface_functions
 import argparse
 import os
 
-world_size = int(os.environ['OMPI_COMM_WORLD_SIZE'])
-rank = int(os.environ['OMPI_COMM_WORLD_RANK'])
+world_size = int(0)
+rank = int(os.environ['ALPS_APP_PE'])
 
 def getargs():
     parser = argparse.ArgumentParser()
@@ -15,6 +15,7 @@ def getargs():
     parser.add_argument("-o", help='output file for data', required=True, type=str)
     parser.add_argument("-r", help='receptor file', required=True, type=str)
     parser.add_argument('-v', help='verbose', action='store_true')
+    parser.add_argument("-n", type=int, default=1)
     return parser.parse_args()
 
 
@@ -45,6 +46,7 @@ def dockStructure(data):
 
 if __name__ == '__main__':
     args = getargs()
+    world_size = args.n
     ## Use input every run
     input_smiles_file = args.i
     target_file = args.r  # twenty of these
