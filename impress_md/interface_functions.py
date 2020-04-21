@@ -17,6 +17,7 @@ def working_directory(directory):
         os.chdir(owd)
 
 
+
 def get_receptor(receptor_file=None, use_hybrid=True, high_resolution=True):
     """
 
