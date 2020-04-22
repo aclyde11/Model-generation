@@ -14,6 +14,13 @@ python convert.py -i input.sdf -o output.csv
 python sdsort.py -i input.sdf -o output.sdf -t "FRED Chemgauss4 Score"
 ```
 
+# Theta docking
+use theta_dock.py and jobsub.sh. Try to make these more robust. theta_dock -l uses a local file to write to ssd then at the end copies it over to the network storage. At the end just cat*.sdf > total.sdf and that is all the results. Then use the above convert scripts to get sorted and out to csv.
+
+```shell script
+obabel -isdf input.sdf -osdf -O top100.sdf -l 100
+```
+
 #### Don't rec venturing below this
 
 # COVID WORK TO DO 
