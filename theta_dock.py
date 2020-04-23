@@ -16,6 +16,7 @@ def getargs():
     parser.add_argument("-r", help='receptor file', required=True, type=str)
     parser.add_argument('-v', help='verbose', action='store_true')
     parser.add_argument("-n", type=int, default=1)
+    parser.add_argument("-l", type=str, default=None, required=False)
     return parser.parse_args()
 
 
