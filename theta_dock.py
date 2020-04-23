@@ -5,7 +5,7 @@ import numpy as np
 from impress_md import interface_functions
 import argparse
 import os
-import shutil
+
 world_size = int(0)
 rank = int(os.environ['ALPS_APP_PE'])
 
@@ -16,7 +16,6 @@ def getargs():
     parser.add_argument("-r", help='receptor file', required=True, type=str)
     parser.add_argument('-v', help='verbose', action='store_true')
     parser.add_argument("-n", type=int, default=1)
-    parser.add_argument("-l", type=str, default=None)
     return parser.parse_args()
 
 
@@ -48,9 +47,7 @@ def dockStructure(data):
 if __name__ == '__main__':
     args = getargs()
     world_size = args.n
-    localf = args.l
-    if localf is not None:
-        localf += "tmp_" + str(rank) + ".sdf"
+
     ## Use input every run
     input_smiles_file = args.i
     target_file = args.r  # twenty of these
@@ -63,10 +60,8 @@ if __name__ == '__main__':
     high_resolution = True
 
     # set logging if used
-    if localf is None:
-        ofs = oechem.oemolostream(output_poses)
-    else:
-        ofs = oechem.oemolostream(localf)
+    ofs = oechem.oemolostream(output_poses)
+
 
     # get root receptor Name
     pdb_name = get_root_protein_name(target_file)
@@ -105,4 +100,3 @@ if __name__ == '__main__':
     if ofs is not None:
         ofs.close()
 
-    shutil.copyfile(localf, output_poses)

@@ -44,7 +44,7 @@ def runvina(infile, outfile, tmp_file='test.pdbqt'):
         pbar.update(1)
         if obconversion.WriteFile(obmol, 'test.pdbqt'):
             try:
-                x = subprocess.check_output(["/Users/austin/Downloads/autodock_vina_1_1_2_mac_catalina_64bit/bin/vina", "--score_only", "--receptor", "/Users/austin/adrp.pdbqt" ,
+                x = subprocess.check_output(["/Users/austin/Downloads/autodock_vina_1_1_2_mac_catalina_64bit/bin/vina", "--score_only", "--receptor", "/Users/austin/Box/2019-nCoV/drug-screening/RELEASES/april20/PLPro/noncovalent/1/oefiles/plpro1.pdbqt" ,
                                              "--ligand", "test.pdbqt"], shell=False)
                 mol2 = pybel.Molecule(obmol2)
                 mol2.data.update({'AutodockVinaRescore' : str(get_aff(x))})
@@ -59,8 +59,10 @@ def runvina(infile, outfile, tmp_file='test.pdbqt'):
 
         obmol = OBMol()
         notatend = obconversion.Read(obmol)
+        obmol2 = OBMol(obmol)
+
     pbar.close()
 
 
-print(runvina('/Users/austin/Box/2019-nCoV/drug-screening/RELEASES/april20/ADRP-ADPR/noncovalent/adrp_adpr_recA_sorted_top100.sdf', 'out.sdf'))
+print(runvina('/Users/austin/Box/2019-nCoV/drug-screening/RELEASES/april20/PLPro/noncovalent/1/plpro1_db_top100.sdf', '/Users/austin/Box/2019-nCoV/drug-screening/RELEASES/april20/PLPro/noncovalent/1/plpro1_db_top100_rescore.sdf'))
 
