@@ -58,7 +58,7 @@ def dockStructure(data):
 
     return score, res, ligand
 
-
+CHUNKSIZE=3
 if __name__ == '__main__':
     args = getargs()
     input_smiles_file = args.i
@@ -74,14 +74,15 @@ if __name__ == '__main__':
 
     if rank == 0:
         smiles_file = pd.read_csv(input_smiles_file)
+        smiles_file.sample(frac=1)
         columns = smiles_file.columns.tolist()
         smiles_col = get_smiles_col(columns)
         name_col = get_ligand_name_col(columns)
 
-        for pos in range(0, smiles_file.shape[0], 5):
-            poss = list(range(pos, pos+5))
-            smiles = smiles_file.iloc[pos : min(pos+5, smiles_file.shape[0]), smiles_col]
-            ligand_name = smiles_file.iloc[pos : min(pos+5,smiles_file.shape[0]), name_col]
+        for pos in range(0, smiles_file.shape[0], CHUNKSIZE):
+            poss = list(range(pos, pos+CHUNKSIZE))
+            smiles = smiles_file.iloc[pos : min(pos+CHUNKSIZE, smiles_file.shape[0]), smiles_col]
+            ligand_name = smiles_file.iloc[pos : min(pos+CHUNKSIZE,smiles_file.shape[0]), name_col]
             status = MPI.Status()
             comm.recv(source=MPI.ANY_SOURCE, tag=MPI.ANY_TAG, status=status)
             rank_from = status.Get_source()
