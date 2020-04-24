@@ -14,7 +14,6 @@ world_size = comm.Get_size()
 import signal
 
 WORKTAG, DIETAG = 11, 13
-CHUNKSIZE = 5
 
 
 class timeout:
@@ -67,10 +66,14 @@ def master():
         ligand_name = smiles.GetTitle()
 
         status = MPI.Status()
-        comm.recv(source=MPI.ANY_SOURCE, tag=MPI.ANY_TAG, status=status)
+        comm.recv(source=MPI.ANY_SOURCE, tag=WORKTAG, status=status)
         rank_from = status.Get_source()
         data = (pos, smiles, ligand_name)
         comm.send(data, dest=rank_from, tag=WORKTAG)
+
+    for i in range(1, world_size):
+        comm.send([], dest=i, tag=DIETAG)
+    comm.Barrier()
 
 
 def slave():
@@ -78,7 +81,7 @@ def slave():
                                                         high_resolution=high_resolution)
 
     comm.send([], dest=0, tag=11)
-    poss = comm.recv(source=0, tag=MPI.ANY_TAG)
+    poss = comm.recv(source=0, tag=WORKTAG)
 
     while True:
         pos, smiles, ligand_name = poss
@@ -98,7 +101,7 @@ def slave():
         except TimeoutError:
             print("TIMEOUT", smiles, ligand_name)
             continue
-        comm.send([], dest=0, tag=11)
+        comm.send([], dest=0, tag=WORKTAG)
 
         status = MPI.Status()
 
@@ -118,6 +121,7 @@ if __name__ == '__main__':
     output_poses = basename + "_" + str(rank) + "." + file_ending
     pdb_name = get_root_protein_name(target_file)
     ## setting don't change
+
     use_hybrid = True
     force_flipper = False
     high_resolution = True
@@ -127,3 +131,4 @@ if __name__ == '__main__':
         master()
     else:
         slave()
+    exit()
