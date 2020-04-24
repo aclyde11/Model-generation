@@ -72,7 +72,7 @@ if __name__ == '__main__':
     ## setting don't change
     use_hybrid = True
     force_flipper = False
-    high_resolution = False
+    high_resolution = True
 
     # set logging if used
     ofs = oechem.oemolostream(output_poses)
