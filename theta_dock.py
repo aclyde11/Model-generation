@@ -9,6 +9,20 @@ import os
 world_size = int(0)
 rank = int(os.environ['ALPS_APP_PE'])
 
+import signal
+
+class timeout:
+    def __init__(self, seconds=1, error_message='Timeout'):
+        self.seconds = seconds
+        self.error_message = error_message
+    def handle_timeout(self, signum, frame):
+        raise TimeoutError(self.error_message)
+    def __enter__(self):
+        signal.signal(signal.SIGALRM, self.handle_timeout)
+        signal.alarm(self.seconds)
+    def __exit__(self, type, value, traceback):
+        signal.alarm(0)
+
 def getargs():
     parser = argparse.ArgumentParser()
     parser.add_argument("-i", help='input csv for smiles', required=True, type=str)
@@ -57,8 +71,8 @@ if __name__ == '__main__':
 
     ## setting don't change
     use_hybrid = True
-    force_flipper = True
-    high_resolution = True
+    force_flipper = False
+    high_resolution = False
 
     # set logging if used
     ofs = oechem.oemolostream(output_poses)
@@ -77,26 +91,25 @@ if __name__ == '__main__':
 
     poss = np.array_split(list(range(smiles_file.shape[0])), world_size)[rank]
     for pos in poss:
-        smiles = smiles_file.iloc[pos, smiles_col]
-        ligand_name = smiles_file.iloc[pos, name_col]
-        score, res, ligand = interface_functions.RunDocking_(smiles,
+        try:
+            with timeout(seconds=150):
+                smiles = smiles_file.iloc[pos, smiles_col]
+                ligand_name = smiles_file.iloc[pos, name_col]
+                score, res, ligand = interface_functions.RunDocking_(smiles,
                                                              dock_obj=docker,
                                                              pos=pos,
                                                              name=ligand_name,
                                                              target_name=pdb_name,
                                                              force_flipper=force_flipper)
 
-        if args.v:
-            print("RANK {}:".format(rank), res, end='')
-        if ofs and ligand is not None:
-            for i, col in enumerate(columns):
-                value = str(smiles_file.iloc[pos, i]).strip()
-                if col.lower() != 'smiles' and 'na' not in value.lower() and len(value) > 1:
-                    try:
-                        oechem.OESetSDData(ligand, col, value)
-                    except ValueError:
-                        pass
-            oechem.OEWriteMolecule(ofs, ligand)
+                if args.v:
+                    print("RANK {}:".format(rank), res, end='')
+                if ofs and ligand is not None:
+                    oechem.OEWriteMolecule(ofs, ligand)
+        except TimeoutError:
+            print("TIMEOUT", smiles, ligand_name)
+            continue
+
 
     if ofs is not None:
         ofs.close()
