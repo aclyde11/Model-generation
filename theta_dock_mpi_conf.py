@@ -1,11 +1,11 @@
 # Workflow 0
-from openeye import oechem
-import pandas as pd
-import numpy as np
-from impress_md import interface_functions
 import argparse
-import os
+
+import numpy as np
 from mpi4py import MPI
+from openeye import oechem
+
+from impress_md import interface_functions
 
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
@@ -14,19 +14,24 @@ world_size = comm.Get_size()
 import signal
 
 WORKTAG, DIETAG = 11, 13
-CHUNKSIZE=5
+CHUNKSIZE = 5
+
 
 class timeout:
     def __init__(self, seconds=1, error_message='Timeout'):
         self.seconds = seconds
         self.error_message = error_message
+
     def handle_timeout(self, signum, frame):
         raise TimeoutError(self.error_message)
+
     def __enter__(self):
         signal.signal(signal.SIGALRM, self.handle_timeout)
         signal.alarm(self.seconds)
+
     def __exit__(self, type, value, traceback):
         signal.alarm(0)
+
 
 def getargs():
     parser = argparse.ArgumentParser()
@@ -52,21 +57,21 @@ def get_ligand_name_col(col_names):
 
 
 def master():
-    smiles_file = pd.read_csv(input_smiles_file)
-    smiles_file.sample(frac=1)
-    columns = smiles_file.columns.tolist()
-    smiles_col = get_smiles_col(columns)
-    name_col = get_ligand_name_col(columns)
+    mol = oechem.OEMol()
 
-    for pos in range(0, smiles_file.shape[0], CHUNKSIZE):
-        poss = list(range(pos, pos + CHUNKSIZE))
-        smiles = smiles_file.iloc[pos: min(pos + CHUNKSIZE, smiles_file.shape[0]), smiles_col]
-        ligand_name = smiles_file.iloc[pos: min(pos + CHUNKSIZE, smiles_file.shape[0]), name_col]
+    ifs = oechem.oemolistream(input_smiles_file)
+    ifs.SetConfTest(oechem.OEAbsCanonicalConfTest())
+
+    for pos, mol in enumerate(ifs.GetOEMols()):
+        smiles = oechem.OEMol(mol)
+        ligand_name = smiles.GetTitle()
+
         status = MPI.Status()
         comm.recv(source=MPI.ANY_SOURCE, tag=MPI.ANY_TAG, status=status)
         rank_from = status.Get_source()
-        data = zip(poss, smiles, ligand_name)
-        comm.send(data, dest=rank_from, tag=23)
+        data = (pos, smiles, ligand_name)
+        comm.send(data, dest=rank_from, tag=WORKTAG)
+
 
 def slave():
     docker, receptor = interface_functions.get_receptor(target_file, use_hybrid=use_hybrid,
@@ -76,23 +81,23 @@ def slave():
     poss = comm.recv(source=0, tag=MPI.ANY_TAG)
 
     while True:
-        for (pos, smiles, ligand_name) in poss:
-            try:
-                with timeout(seconds=150):
-                    score, res, ligand = interface_functions.RunDocking_(smiles,
+        pos, smiles, ligand_name = poss
+        try:
+            with timeout(seconds=60):
+                score, res, ligand = interface_functions.RunDocking_conf(smiles,
                                                                          dock_obj=docker,
                                                                          pos=pos,
                                                                          name=ligand_name,
                                                                          target_name=pdb_name,
                                                                          force_flipper=force_flipper)
 
-                    if args.v:
-                        print("RANK {}:".format(rank), res, end='')
-                    if ofs and ligand is not None:
-                        oechem.OEWriteMolecule(ofs, ligand)
-            except TimeoutError:
-                print("TIMEOUT", smiles, ligand_name)
-                continue
+                if args.v:
+                    print("RANK {}:".format(rank), res, end='')
+                if ofs and ligand is not None:
+                    oechem.OEWriteMolecule(ofs, ligand)
+        except TimeoutError:
+            print("TIMEOUT", smiles, ligand_name)
+            continue
         comm.send([], dest=0, tag=11)
 
         status = MPI.Status()
@@ -104,7 +109,6 @@ def slave():
     if ofs is not None:
         ofs.close()
     comm.Barrier()
-
 
 if __name__ == '__main__':
     args = getargs()

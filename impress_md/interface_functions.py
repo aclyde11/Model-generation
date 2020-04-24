@@ -71,6 +71,44 @@ def CanSmi(mol, isomeric, kekule):
     smi = oechem.OECreateSmiString(mol, smiflag)
     return smi
 
+def RunDocking_conf(ligand: oechem.OEMol, dock_obj: oedocking.OEDock, pos: int = None, name: str = None, target_name: str = None, force_flipper: bool = True) -> object:
+    """
+
+    :param smiles: a str representing the molecule (SMILES)
+    :param dock_obj: The OEDock prepared receptor
+    :param pos: int for print string
+    :param name: name of ligand for printing string
+    :param target_name: name of target from docking
+    :param force_flipper: whether or not to flip entamiers when generating conformers
+    :return: score, string result, ligand
+    """
+    if not dock_obj.IsInitialized():
+        assert(False)
+
+    scores = []
+    ligands = []
+
+
+
+    lig = oechem.OEMol()
+    dock_conf.DockConf_(dock_obj, ligand, lig, MAX_POSES=1)
+    scores.append(dock_obj.ScoreLigand(lig))
+    ligands.append(lig)
+
+    # get best score from the Enantiomers
+    if len(scores) > 0:
+        bs = np.argmin(scores)
+        score_min = scores[bs]
+        ligand_min = ligands[bs]
+
+        dockMethod = dock_obj.GetName()
+        oedocking.OESetSDScore(ligand_min, dock_obj, dockMethod)
+        ligand_min.SetTitle(name)
+    else:
+        return None, None, None
+
+    res = "{},{},{},{}\n".format(str(pos), name, target_name, score_min)
+    return score_min, res, ligand_min
 
 def RunDocking_(smiles: str, dock_obj: oedocking.OEDock, pos: int = None, name: str = None, target_name: str = None, force_flipper: bool = True) -> object:
     """
