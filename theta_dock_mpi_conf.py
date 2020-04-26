@@ -4,7 +4,7 @@ import argparse
 import numpy as np
 from mpi4py import MPI
 from openeye import oechem
-
+import concurrent.futures
 from impress_md import interface_functions
 
 comm = MPI.COMM_WORLD
@@ -14,8 +14,8 @@ import time
 import signal
 
 WORKTAG, DIETAG = 11, 13
-
-CHUNK=2
+WORKERS=2
+CHUNK=4
 class timeout:
     def __init__(self, seconds=1, error_message='Timeout'):
         self.seconds = seconds
@@ -114,30 +114,37 @@ def slave():
     poss = comm.recv(source=0, tag=WORKTAG)
 
     while True:
-        for (pos, smiles, ligand_name) in poss:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=WORKERS) as executor:
+            # Start the load operations and mark each future with its URL
+            future_to_url = {executor.submit(interface_functions.RunDocking_conf, smiles,
+                                                                     dock_obj=docker,
+                                                                     pos=pos,
+                                                                     name=ligand_name,
+                                                                     target_name=pdb_name,
+                                                                     force_flipper=force_flipper): (pos, smiles, ligand_name) for (pos, smiles, ligand_name) in poss}
             try:
-                with timeout(seconds=120):
-                    dstart = time.time()
-
-                    score, res, ligand = interface_functions.RunDocking_conf(smiles,
-                                                                             dock_obj=docker,
-                                                                             pos=pos,
-                                                                             name=ligand_name,
-                                                                             target_name=pdb_name,
-                                                                             force_flipper=force_flipper)
+                dstart = time.time()
+                for future in concurrent.futures.as_completed(future_to_url, timeout=60*4):
                     dend = time.time()
-
-                    if args.v == 2:
-                        print("RANK {}:".format(rank), res, end='')
-                    if ofs and ligand is not None:
-                        wstart = time.time()
-                        oechem.OEWriteMolecule(ofs, ligand)
-                        wend = time.time()
-                    if rank % 20 == 0:
-                        print("rank {} dtime".format(rank), dend - dstart, "wtime", wend - wstart)
-            except TimeoutError:
-                print("TIMEOUT", smiles, ligand_name)
-                continue
+                    pos, smiles, ligand = future_to_url[future]
+                    try:
+                        d = future.result()
+                        score, res, ligand = d
+                        if args.v == 2:
+                            print("RANK {}:".format(rank), res, end='')
+                        if ofs and ligand is not None:
+                            wstart = time.time()
+                            oechem.OEWriteMolecule(ofs, ligand)
+                            wend = time.time()
+                        if rank % 20 == 0:
+                            print("rank {} dtime".format(rank), dend - dstart, "wtime", wend - wstart)
+                    except Exception as exc:
+                        print('%r generated an exception: %s' % (smiles, exc))
+                    else:
+                        print('%r page is %d bytes' % (smiles, len(d)))
+                    dstart = time.time()
+            except concurrent.futures.TimeoutError:
+                print("Rank {} TIMEOUT".format(rank))
 
         wstart = time.time()
         comm.send([], dest=0, tag=WORKTAG)
