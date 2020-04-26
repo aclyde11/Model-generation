@@ -83,16 +83,16 @@ def master():
                 ligand_name = smiles.GetTitle()
                 data.append((pos, smiles, ligand_name))
             rend = time.time()
-
+            pos = data[0][0]
             ## SEND
             sstart = time.time()
             rank_from = status.Get_source()
             comm.send(data, dest=rank_from, tag=WORKTAG)
             send = time.time()
 
-            if args.v == 1 and data[-1][0] % 1000 == 0:
-                print("sent", data[-1][0], "jobs")
-            if data[-1][0] % 10 == 0:
+            if args.v == 1 and pos % 1000 == 0:
+                print("sent", pos, "jobs")
+            if pos % 10 == 0:
                 print('master rtime', (rend - rstart)/CHUNK, 'stime', send - sstart, 'waitime', waitend - waitstart)
         except StopIteration:
             if len(data) != 0:
