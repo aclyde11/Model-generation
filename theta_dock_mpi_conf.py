@@ -12,24 +12,23 @@ comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
 world_size = comm.Get_size()
 import time
-import signal
-
+import copy
 WORKTAG, DIETAG = 11, 13
 
-class timeout:
-    def __init__(self, seconds=1, error_message='Timeout'):
-        self.seconds = seconds
-        self.error_message = error_message
-
-    def handle_timeout(self, signum, frame):
-        raise TimeoutError(self.error_message)
-
-    def __enter__(self):
-        signal.signal(signal.SIGALRM, self.handle_timeout)
-        signal.alarm(self.seconds)
-
-    def __exit__(self, type, value, traceback):
-        signal.alarm(0)
+# class timeout:
+#     def __init__(self, seconds=1, error_message='Timeout'):
+#         self.seconds = seconds
+#         self.error_message = error_message
+#
+#     def handle_timeout(self, signum, frame):
+#         raise TimeoutError(self.error_message)
+#
+#     def __enter__(self):
+#         signal.signal(signal.SIGALRM, self.handle_timeout)
+#         signal.alarm(self.seconds)
+#
+#     def __exit__(self, type, value, traceback):
+#         signal.alarm(0)
 
 
 def getargs():
@@ -40,8 +39,8 @@ def getargs():
     parser.add_argument('-v', help='verbose (1 print every 1000, 2 print every thing)', type=int, choices=[0,1,2], default=1)
     parser.add_argument("-n", type=int, default=1)
     parser.add_argument("-l", type=str, default=None, required=False)
-    parser.add_argument("-w", type=int, default=4, required=False)
-    parser.add_argument('-c', type=int, default=8, required=False)
+    parser.add_argument("-w", type=int, default=6, required=False)
+    parser.add_argument('-c', type=int, default=16, required=False)
     parser.add_argument('--queue_lim', type=int, default=120, required=False)
     return parser.parse_args()
 
@@ -122,12 +121,9 @@ def master():
 
 def run_dock_timeout(**kwargs):
     try:
-        with timeout(seconds=180):
-            return interface_functions.RunDocking_conf(**kwargs)
-    except TimeoutError:
-        print("TIMEOUT")
-    except:
-        print("unkown error")
+        return interface_functions.RunDocking_conf(**kwargs)
+    except Exception as e:
+        print("unkown error",e)
     return None, None, None
 
 
@@ -140,15 +136,15 @@ def slave():
     while True:
         with concurrent.futures.ThreadPoolExecutor(max_workers=WORKERS) as executor:
             # Start the load operations and mark each future with its URL
-            future_to_url = {executor.submit(run_dock_timeout, ligand=smiles,
+            future_to_url = {executor.submit(run_dock_timeout, ligand=oechem.OEMol(smiles),
                                                                      dock_obj=dockers[i],
-                                                                     pos=pos,
-                                                                     name=ligand_name,
-                                                                     target_name=pdb_name,
-                                                                     force_flipper=force_flipper): (pos, smiles, ligand_name) for i, (pos, smiles, ligand_name) in enumerate(poss)}
+                                                                     pos=copy.copy(pos),
+                                                                     name=copy.copy(ligand_name),
+                                                                     target_name=copy.copy(pdb_name),
+                                                                     force_flipper=copy.copy(force_flipper)) : None for i, (pos, smiles, ligand_name) in enumerate(poss)}
             try:
-                for future in concurrent.futures.as_completed(future_to_url, timeout=None):
-                    pos, smiles, ligand = future_to_url[future]
+                for future in concurrent.futures.as_completed(future_to_url, timeout=180 * len(poss)):
+                    # pos, smiles, ligand = future_to_url[future]
                     try:
                         d = future.result()
                         score, res, ligand = d
@@ -158,7 +154,7 @@ def slave():
                             oechem.OEWriteMolecule(ofs, ligand)
 
                     except Exception as exc:
-                        print('%r generated an exception: %s' % (smiles, exc))
+                        print('%r generated an exception: %s' % (exc))
 
             except concurrent.futures.TimeoutError:
                 print("Rank {} TIMEOUT".format(rank))
