@@ -63,9 +63,6 @@ def master():
     ifs.SetConfTest(oechem.OEAbsCanonicalConfTest())
 
     rstart = time.time()
-    rend = None
-    sstart = None
-    send = None
     for pos, mol in enumerate(ifs.GetOEMols()):
         rend = time.time()
         smiles = oechem.OEMol(mol)
@@ -80,8 +77,8 @@ def master():
         send = time.time()
         if args.v == 1 and pos % 1000 == 0:
             print("sent", pos, "jobs")
-        if pos % 100 == 0:
-            print('rtime', rend - rstart, 'stime', send - sstart)
+        if pos % 10 == 0:
+            print('master rtime', rend - rstart, 'stime', send - sstart)
         rstart = time.time()
     for i in range(1, world_size):
         comm.send([], dest=i, tag=DIETAG)
@@ -114,9 +111,9 @@ def slave():
                 if ofs and ligand is not None:
                     wstart = time.time()
                     oechem.OEWriteMolecule(ofs, ligand)
-                    wend = time()
+                    wend = time.time()
                 if rank in [3, 43, 218, 32]:
-                    print("dtime", dend - dstart, "wtime", wend - wstart)
+                    print("rank {} dtime".format(rank), dend - dstart, "wtime", wend - wstart)
         except TimeoutError:
             print("TIMEOUT", smiles, ligand_name)
             continue
