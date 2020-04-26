@@ -39,8 +39,8 @@ def getargs():
     parser.add_argument('-v', help='verbose (1 print every 1000, 2 print every thing)', type=int, choices=[0,1,2], default=1)
     parser.add_argument("-n", type=int, default=1)
     parser.add_argument("-l", type=str, default=None, required=False)
-    parser.add_argument("-w", type=int, default=6, required=False)
-    parser.add_argument('-c', type=int, default=16, required=False)
+    parser.add_argument("-w", type=int, default=3, required=False)
+    parser.add_argument('-c', type=int, default=9, required=False)
     parser.add_argument('--queue_lim', type=int, default=120, required=False)
     return parser.parse_args()
 
@@ -100,7 +100,7 @@ def master():
             #wait until asked
             status = MPI.Status()
             comm.recv(source=MPI.ANY_SOURCE, tag=WORKTAG, status=status)
-
+            print('recevoed')
             if not q.empty():
                 data = q.get()
             else:
@@ -111,7 +111,7 @@ def master():
             rank_from = status.Get_source()
             comm.send(data, dest=rank_from, tag=WORKTAG)
 
-            if args.v == 1 and pos % 1000 == 0:
+            if args.v >= 1 and pos % 1000 == 0:
                 print("sent", pos, "jobs")
     for i in range(1, world_size):
         comm.send([], dest=i, tag=DIETAG)
@@ -128,43 +128,50 @@ def run_dock_timeout(**kwargs):
 
 
 def slave():
+    ofs = oechem.oemolostream(output_poses)
+
     dockers = [interface_functions.get_receptor(target_file, use_hybrid=use_hybrid,high_resolution=high_resolution)[0] for _ in range(CHUNK)]
 
-    comm.send([], dest=0, tag=11)
-    poss = comm.recv(source=0, tag=WORKTAG)
+    reruns = {}
 
     while True:
         with concurrent.futures.ThreadPoolExecutor(max_workers=WORKERS) as executor:
+            comm.send([], dest=0, tag=WORKTAG)
+            status = MPI.Status()
+            poss = comm.recv(source=0, tag=MPI.ANY_TAG, status=status)
+
+            if status.Get_tag() == DIETAG:
+                break
             # Start the load operations and mark each future with its URL
             future_to_url = {executor.submit(run_dock_timeout, ligand=oechem.OEMol(smiles),
                                                                      dock_obj=dockers[i],
                                                                      pos=copy.copy(pos),
                                                                      name=copy.copy(ligand_name),
                                                                      target_name=copy.copy(pdb_name),
-                                                                     force_flipper=copy.copy(force_flipper)) : None for i, (pos, smiles, ligand_name) in enumerate(poss)}
+                                                                     force_flipper=copy.copy(force_flipper)) : False for i, (pos, smiles, ligand_name) in enumerate(poss)}
+            future_to_url.update(reruns)
             try:
-                for future in concurrent.futures.as_completed(future_to_url, timeout=180 * len(poss)):
+                for ct, future in enumerate(concurrent.futures.as_completed(future_to_url, timeout=90 * len(future_to_url) / WORKERS)):
                     # pos, smiles, ligand = future_to_url[future]
                     try:
-                        d = future.result()
-                        score, res, ligand = d
+                        _, res, ligand = future.result()
                         if args.v == 2:
                             print("RANK {}:".format(rank), res, end='')
+                            # pass
                         if ofs and ligand is not None:
                             oechem.OEWriteMolecule(ofs, ligand)
+                        future_to_url[future] = True
 
                     except Exception as exc:
-                        print('%r generated an exception: %s' % (exc))
+                        pass
+                    if len(future_to_url) - ct < (WORKERS):
+                        raise(concurrent.futures.TimeoutError())
 
             except concurrent.futures.TimeoutError:
-                print("Rank {} TIMEOUT".format(rank))
-
-        comm.send([], dest=0, tag=WORKTAG)
-        status = MPI.Status()
-        poss = comm.recv(source=0, tag=MPI.ANY_TAG, status=status)
-
-        if status.Get_tag() == DIETAG:
-            break
+                reruns = {}
+                for k, v in future_to_url.items():
+                    if not v:
+                        reruns[k] = v
 
     if ofs is not None:
         ofs.close()
@@ -184,7 +191,6 @@ if __name__ == '__main__':
     use_hybrid = True
     force_flipper = False
     high_resolution = False
-    ofs = oechem.oemolostream(output_poses)
 
     if rank == 0:
         master()
