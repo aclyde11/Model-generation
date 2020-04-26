@@ -88,8 +88,6 @@ def RunDocking_conf(ligand: oechem.OEMol, dock_obj: oedocking.OEDock, pos: int =
     scores = []
     ligands = []
 
-
-
     lig = oechem.OEMol()
     dock_conf.DockConf_(dock_obj, ligand, lig, MAX_POSES=1)
     scores.append(dock_obj.ScoreLigand(lig))

@@ -129,7 +129,7 @@ def master():
 
 
 def slave():
-    dockers = [interface_functions.get_receptor(target_file, use_hybrid=use_hybrid,high_resolution=high_resolution) for _ in range(CHUNK)]
+    dockers = [interface_functions.get_receptor(target_file, use_hybrid=use_hybrid,high_resolution=high_resolution)[0] for _ in range(CHUNK)]
 
     comm.send([], dest=0, tag=11)
     poss = comm.recv(source=0, tag=WORKTAG)
