@@ -146,7 +146,7 @@ def slave():
                                                                      force_flipper=force_flipper): (pos, smiles, ligand_name) for i, (pos, smiles, ligand_name) in enumerate(poss)}
             try:
                 dstart = time.time()
-                for future in concurrent.futures.as_completed(future_to_url, timeout=60*4):
+                for future in concurrent.futures.as_completed(future_to_url, timeout=180*CHUNK):
                     dend = time.time()
                     pos, smiles, ligand = future_to_url[future]
                     try:
