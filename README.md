@@ -1,127 +1,52 @@
 
 
 # Docking
- The smiles input file should have a column that matches something like SMILES or smiles, and a name column that matches something like ID, CID, TITLE, NAME etc (case doesn't matter). -n will control number of workers to run, default is 1 (single threaded). -v will print somethings to screen while it runs. The output file format is automatically detected. SDF recomended. Use convert.py or sdsorter.py to sort or manage that conversion after docking.
+There are four flavors of docking scripts here.
+- docking.py is a script aimed at running on a small job on a local laptop or computer. It can be run in parallel on a single machine using python multiprocressing. Not suitable for HPC.
+- theta_dock.py is a script aimed at HPC. It does not use any load balancing and simply splits the input file over the ranks. Does not need MPI4py.
 ```shell script
-python docking.py -i my_smiles.csv -o results.{sdf, csv} -n 1 -r recetor.oeb -v 
+aprun -n <number of ranks> ... python theta_dock.py -i <input.csv> -o <out sdf locations: outfolder/out.sdf> -v -n <number of ranks> -r <receptor file>
+cat outfolder/*.sdf > all.sdf
+python convert.py -i all.sdf -o all_cleaned.sdf -u
 ```
-
+- theta_dock_mpi.py is a script aimed at HPC. It uses mpi4py to do load balancing while the job is running, handing out data in chunks of 5.
 ```shell script
-python convert.py -i input.sdf -o output.csv
+aprun -n <number of ranks> ... python theta_dock.py -i <input.csv> -o <out sdf locations: outfolder/out.sdf> -v -r <receptor file>
+cat outfolder/*.sdf > all.sdf
+python convert.py -i all.sdf -o all_cleaned.sdf -u
 ```
-
+- theta_dock_mpi_conf.py is a script aimed at HPC. it uses mpi4py to do load balancing. It also uses a conformer oeb input file to skip generating conformers every time resulting in significant speed up. The data requires some post processing however. 
 ```shell script
-python sdsort.py -i input.sdf -o output.sdf -t "FRED Chemgauss4 Score"
+aprun -n <number of ranks> ... python theta_dock_mpi_conf.py -i <input.oeb> -o <out sdf locations: outfolder/out.sdf> -v -r <receptor file>
+cat outfolder/*.sdf > all.sdf
+python convert.py -i all.sdf -o all_cleaned.sdf -u
 ```
 
-# Theta docking
-use theta_dock.py and jobsub.sh. Try to make these more robust. theta_dock -l uses a local file to write to ssd then at the end copies it over to the network storage. At the end just cat*.sdf > total.sdf and that is all the results. Then use the above convert scripts to get sorted and out to csv.
+While these scripts are running, one can just query the output to see the progress (i.e. wc -l 4303.output). Except the theta_dock_mpi_conf will not show correctly, one needs to use python checkcount.py <outputlog.output> to get the correct count of moleculees procressed so far. 
 
+
+## Helper Scripts
+There are three utility scripts ```convert.py, sdsort.py, enamine_fix_oe_title.py```
+All scripts use openeye for IO, so input and output formats are flexible and open-ended (-i/o {.sdf, .smi, .csv, .mol2, .pdb}). Openeye sets all titles correctly and calls the names in CSV TITLE and SMILES. Docking scores can appear as "[FRED, HYBRID, ''] Chemguass4." Autodock rescores get tagged AutodockVinaRescoreOnly. There is an issue where 
+
+- ```sdsort.py```
+This script performs a sort based an SD tag. For example, to sort an SDF file by Chemgauss one can do
 ```shell script
-obabel -isdf input.sdf -osdf -O top100.sdf -l 100
+python sdsort.py -i out.sdf -o out_sorted.sdf -t "Chemgauss4" -u
+```
+where one can add the ```-u``` to make sure some molecules are aggregated by title as Omega during the conformer generation may generate a different molecular entry, even though it originated from the same SMILES.
+
+You can convert in one step and optionally only get the top n as well:
+```shell script
+python sdsort.py -i out.sdf -o out_sorted_top100.csv -t "Chemgauss4" -u -n 100
 ```
 
-#### Don't rec venturing below this
-
-# COVID WORK TO DO 
-
-Hello,
-
-Major work items are creating a robust workflow for the giga-docking. Please make sure you're on the vcovid branch
-
-
-Look at the function in the inferface_function file called Run_Docking_
-The arguments are as follows:
-
-There are two options to run.
-
-Preload the docking receptor 
-
-smiles -- a string of the smiles
-inpath -- a receptor file which will be provided as oeb
-dbase_name -- a string which is the name of the dbase run where the smiles comes
-target_name -- a string which is the name of the target 
-pos=0 --file string index position of the thing
-receptor_file=None -- a receptor file which will be provided as oeb 
-dock_obj=None -- the dock obj is you are precomputing it
-recept=None -- the receptor object if you are precomputing it
-name='UNK'
-docking_only=False
- 
-Do not preload the docking receptor 
-smiles -- a string of the smiles
-inpath -- a receptor file which will be provided as oeb
-dbase_name -- a string which is the name of the dbase run where the smiles comes
-target_name -- a string which is the name of the target 
-pos=0 -- file string index position of the thing
-receptor_file=None -- a receptor file which will be provided as oeb 
-dock_obj=None -- the dock obj is you are precomputing it
-recept=None -- the receptor object if you are precomputing it
-name='UNK'
-docking_only=False
-
-
-## INTERFACE
-
-a list of receptor file .oeb, and a csv of smiles. 
-
-receptor file on one axis
-smiles on the other. 
-
-
-So in the folder input, take the enamine_diverse.smi and the swiss_plpro.oeb. Test on those. Sorry if my recent changes broke this code, but should be easy to fix.
-
-Taake a look at theta dock to see how this works.
----------
-
-This runs of x86 ONLY for the moment. 
-
-Build the conda enviroment using the yml file or just run stuff and figure out how to make it work (it's not rocket science ;)
-
-You can run end to end with 
-```python 
-mpiexec -np 8 python runner.py input/john_smiles_kinasei.smi
+- ```convert.py```
+This script performs basic conversion.
+```shell script
+python convert.py -i out.sdf -o out_sorted.csv
 ```
+where one can add the ```-u``` to make sure some molecules are aggregated by title as Omega during the conformer generation may generate a different molecular entry, even though it originated from the same SMILES.
 
-You can alter how those runs peform using the policy file.
-
-In the future, this workflow will be moved to Radical/ENTK, but for now this works. 
-
-
-
----- 
-
-# Model-generation
-Python scripts to generate an MD-ready model from smiles strings and run simple free energy calculations 
-
-There are two command line executables.
-
-## docking.py
-* Takes a smiles and pdb, generates conformers, docks, and scores the ligand.
-* The output is a set of simulation-ready structures (ligand, apo, and complex) and a file called metrics.csv, which has the docking score and associated uncertainties. Most uncertainties are 0 right now. There are other auxiliary files that are saved in the output directory.
-* Dependencies: OpenEye, Ambertools, Ambermini, docopt
-
-## param.py
-* Parameterizes the ligand using either OpenEye or Amber.
-
-## mmgbsa.py
-* This command should only be run after docking.py. 
-* Input is a path to the directory where the input coordinates and parameters are saved. This should be the output path from the docking.py command.
-* Also takes the nanosecond length of the simulation. 0 corresponds to an energy minimization.
-* Output adds to the metrics.csv file
-* Dependencies: OpenMM, numpy, pymbar, docopt
-
-## alchem.py
-* Uses an alchemical method to calculate the absolute binding free energy of a ligand.
-* User enters the number of lambda windows and the length of simulation at each window.
-* The windows run in series but this could be parallelized.
-* Applying constraints should increase the convergence of the system
-
-To get the four metrics for a smiles, including a 5 ns simulation, pick a smiles and call
-~~~bash
-python docking.py -s $SMILES -i "input/receptor.oeb" -o "test"
-python param.py -i "test"
-python mmgbsa.py -p "test" -n 0
-python mmgbsa.py -p "test" -n 5
-python alchem.py -i "test" -l 6 -n 5
-~~~
+- ```enamine_fix_oe_title.py```
+This script fixes a ~bug~ where Enamine molecules sometimes don't get titled but rather their name goes to an SD tag "Catalog ID." This finds those molecules and fixes the bug.
