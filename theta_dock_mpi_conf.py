@@ -67,9 +67,10 @@ def master():
         rend = time.time()
         smiles = oechem.OEMol(mol)
         ligand_name = smiles.GetTitle()
-
         status = MPI.Status()
+        waitstart = time.time()
         comm.recv(source=MPI.ANY_SOURCE, tag=WORKTAG, status=status)
+        waitend = time.time()
         sstart = time.time()
         rank_from = status.Get_source()
         data = (pos, smiles, ligand_name)
@@ -78,7 +79,7 @@ def master():
         if args.v == 1 and pos % 1000 == 0:
             print("sent", pos, "jobs")
         if pos % 10 == 0:
-            print('master rtime', rend - rstart, 'stime', send - sstart)
+            print('master rtime', rend - rstart, 'stime', send - sstart, 'waitime', waitend - waitstart)
         rstart = time.time()
     for i in range(1, world_size):
         comm.send([], dest=i, tag=DIETAG)
