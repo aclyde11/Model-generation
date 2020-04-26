@@ -10,7 +10,7 @@ from impress_md import interface_functions
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
 world_size = comm.Get_size()
-
+import time
 import signal
 
 WORKTAG, DIETAG = 11, 13
@@ -62,19 +62,27 @@ def master():
     ifs = oechem.oemolistream(input_smiles_file)
     ifs.SetConfTest(oechem.OEAbsCanonicalConfTest())
 
+    rstart = time.time()
+    rend = None
+    sstart = None
+    send = None
     for pos, mol in enumerate(ifs.GetOEMols()):
+        rend = time.time()
         smiles = oechem.OEMol(mol)
         ligand_name = smiles.GetTitle()
 
         status = MPI.Status()
         comm.recv(source=MPI.ANY_SOURCE, tag=WORKTAG, status=status)
+        sstart = time.time()
         rank_from = status.Get_source()
         data = (pos, smiles, ligand_name)
         comm.send(data, dest=rank_from, tag=WORKTAG)
-        
+        send = time.time()
         if args.v == 1 and pos % 1000 == 0:
             print("sent", pos, "jobs")
-
+        if pos % 100 == 0:
+            print('rtime', rend - rstart, 'stime', send - sstart)
+        rstart = time.time()
     for i in range(1, world_size):
         comm.send([], dest=i, tag=DIETAG)
     comm.Barrier()
@@ -91,17 +99,24 @@ def slave():
         pos, smiles, ligand_name = poss
         try:
             with timeout(seconds=120):
+                dstart = time.time()
+
                 score, res, ligand = interface_functions.RunDocking_conf(smiles,
                                                                          dock_obj=docker,
                                                                          pos=pos,
                                                                          name=ligand_name,
                                                                          target_name=pdb_name,
                                                                          force_flipper=force_flipper)
+                dend = time.time()
 
                 if args.v == 2:
                     print("RANK {}:".format(rank), res, end='')
                 if ofs and ligand is not None:
+                    wstart = time.time()
                     oechem.OEWriteMolecule(ofs, ligand)
+                    wend = time()
+                if rank in [3, 43, 218, 32]:
+                    print("dtime", dend - dstart, "wtime", wend - wstart)
         except TimeoutError:
             print("TIMEOUT", smiles, ligand_name)
             continue
