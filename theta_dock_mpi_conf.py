@@ -40,8 +40,8 @@ def getargs():
     parser.add_argument('-v', help='verbose (1 print every 1000, 2 print every thing)', type=int, choices=[0,1,2], default=1)
     parser.add_argument("-n", type=int, default=1)
     parser.add_argument("-l", type=str, default=None, required=False)
-    parser.add_argument("-w", type=int, default=2, required=False)
-    parser.add_argument('-c', type=int, default=4, required=False)
+    parser.add_argument("-w", type=int, default=4, required=False)
+    parser.add_argument('-c', type=int, default=8, required=False)
     parser.add_argument('--queue_lim', type=int, default=120, required=False)
     return parser.parse_args()
 
@@ -100,33 +100,35 @@ def master():
     while not done.is_set() or not q.empty():
             #wait until asked
             status = MPI.Status()
-            waitstart = time.time()
             comm.recv(source=MPI.ANY_SOURCE, tag=WORKTAG, status=status)
-            waitend = time.time()
 
-            rstart = time.time()
             if not q.empty():
                 data = q.get()
             else:
                 break
-            rend = time.time()
             pos = data[0][0]
 
             ## SEND
-            sstart = time.time()
             rank_from = status.Get_source()
             comm.send(data, dest=rank_from, tag=WORKTAG)
-            send = time.time()
 
             if args.v == 1 and pos % 1000 == 0:
                 print("sent", pos, "jobs")
-            if pos % 10 == 0:
-                print('master rtime', (rend - rstart)/CHUNK, 'stime', send - sstart, 'waitime', waitend - waitstart)
     for i in range(1, world_size):
         comm.send([], dest=i, tag=DIETAG)
     t.join()
 
     comm.Barrier()
+
+def run_dock_timeout(**kwargs):
+    try:
+        with timeout(seconds=180):
+            return interface_functions.RunDocking_conf(**kwargs)
+    except TimeoutError:
+        print("TIMEOUT")
+    except:
+        print("unkown error")
+    return None, None, None
 
 
 def slave():
@@ -138,16 +140,14 @@ def slave():
     while True:
         with concurrent.futures.ThreadPoolExecutor(max_workers=WORKERS) as executor:
             # Start the load operations and mark each future with its URL
-            future_to_url = {executor.submit(interface_functions.RunDocking_conf, smiles,
+            future_to_url = {executor.submit(run_dock_timeout, ligand=smiles,
                                                                      dock_obj=dockers[i],
                                                                      pos=pos,
                                                                      name=ligand_name,
                                                                      target_name=pdb_name,
                                                                      force_flipper=force_flipper): (pos, smiles, ligand_name) for i, (pos, smiles, ligand_name) in enumerate(poss)}
             try:
-                dstart = time.time()
-                for future in concurrent.futures.as_completed(future_to_url, timeout=180*CHUNK):
-                    dend = time.time()
+                for future in concurrent.futures.as_completed(future_to_url, timeout=None):
                     pos, smiles, ligand = future_to_url[future]
                     try:
                         d = future.result()
@@ -155,25 +155,17 @@ def slave():
                         if args.v == 2:
                             print("RANK {}:".format(rank), res, end='')
                         if ofs and ligand is not None:
-                            wstart = time.time()
                             oechem.OEWriteMolecule(ofs, ligand)
-                            wend = time.time()
-                        if rank % 20 == 0:
-                            print("rank {} dtime".format(rank), dend - dstart, "wtime", wend - wstart)
+
                     except Exception as exc:
                         print('%r generated an exception: %s' % (smiles, exc))
 
-                    dstart = time.time()
             except concurrent.futures.TimeoutError:
                 print("Rank {} TIMEOUT".format(rank))
 
-        wstart = time.time()
         comm.send([], dest=0, tag=WORKTAG)
         status = MPI.Status()
         poss = comm.recv(source=0, tag=MPI.ANY_TAG, status=status)
-        wend = time.time()
-        if rank % 20 == 0:
-            print("rank {} dtime".format(rank), "waittime", wend - wstart)
 
         if status.Get_tag() == DIETAG:
             break
