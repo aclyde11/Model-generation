@@ -113,7 +113,7 @@ def slave():
                     wstart = time.time()
                     oechem.OEWriteMolecule(ofs, ligand)
                     wend = time.time()
-                if rank in [3, 43, 218, 32]:
+                if rank % 20 == 0:
                     print("rank {} dtime".format(rank), dend - dstart, "wtime", wend - wstart)
         except TimeoutError:
             print("TIMEOUT", smiles, ligand_name)
@@ -124,7 +124,8 @@ def slave():
         status = MPI.Status()
         poss = comm.recv(source=0, tag=MPI.ANY_TAG, status=status)
         wend = time.time()
-        print("rank {} dtime".format(rank), "waittime", wend - wstart)
+        if rank % 20 == 0:
+            print("rank {} dtime".format(rank), "waittime", wend - wstart)
 
         if status.Get_tag() == DIETAG:
             break
