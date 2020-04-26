@@ -13,18 +13,30 @@ def getargs():
 if __name__ == '__main__':
     args = getargs()
 
+    mol = oechem.OEMol()
+
     ifs = oechem.oemolistream(args.i)
-    ofs = oechem.oemolostream(args.o)
-    lig = oechem.OEGraphMol()
+    ifs.SetConfTest(oechem.OEAbsCanonicalConfTest())
 
-    pbar = tqdm()
-    while oechem.OEReadMolecule(ifs, lig):
-        if oechem.OEHasSDData(lig, "Catalog ID"):
-            lig.SetTitle(oechem.OEGetSDData(lig, "Catalog ID"))
 
-        oechem.OEWriteMolecule(ofs, lig)
-        pbar.update(1)
 
-    pbar.close()
+    iterator = iter(enumerate(ifs.GetOEMols()))
+    while True:
+        try:
+            i, mol = next(iterator)
+            print(mol.GetTitle())
+
+            if i == 10:
+                break
+        except StopIteration:
+            break
+
+    print()
     ifs.close()
-    ofs.close()
+
+    ifs = oechem.oemolistream(args.i)
+    ifs.SetConfTest(oechem.OEAbsCanonicalConfTest())
+    for i,mol in enumerate(ifs.GetOEMols()):
+        print(mol.GetTitle())
+        if i== 10:
+            break

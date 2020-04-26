@@ -15,7 +15,7 @@ import signal
 
 WORKTAG, DIETAG = 11, 13
 
-
+CHUNK=2
 class timeout:
     def __init__(self, seconds=1, error_message='Timeout'):
         self.seconds = seconds
@@ -63,24 +63,44 @@ def master():
     ifs.SetConfTest(oechem.OEAbsCanonicalConfTest())
 
     rstart = time.time()
-    for pos, mol in enumerate(ifs.GetOEMols()):
-        rend = time.time()
-        smiles = oechem.OEMol(mol)
-        ligand_name = smiles.GetTitle()
-        status = MPI.Status()
-        waitstart = time.time()
-        comm.recv(source=MPI.ANY_SOURCE, tag=WORKTAG, status=status)
-        waitend = time.time()
-        sstart = time.time()
-        rank_from = status.Get_source()
-        data = (pos, smiles, ligand_name)
-        comm.send(data, dest=rank_from, tag=WORKTAG)
-        send = time.time()
-        if args.v == 1 and pos % 1000 == 0:
-            print("sent", pos, "jobs")
-        if pos % 10 == 0:
-            print('master rtime', rend - rstart, 'stime', send - sstart, 'waitime', waitend - waitstart)
-        rstart = time.time()
+    senddata = []
+
+    iterator = iter(enumerate(ifs.GetOEMols()))
+
+    while True:
+        try:
+            #wait until asked
+            status = MPI.Status()
+            waitstart = time.time()
+            comm.recv(source=MPI.ANY_SOURCE, tag=WORKTAG, status=status)
+            waitend = time.time()
+
+            data = []
+            rstart = time.time()
+            for _ in range(CHUNK):
+                pos,mol = next(iterator)
+                smiles = oechem.OEMol(mol)
+                ligand_name = smiles.GetTitle()
+                data.append((pos, smiles, ligand_name))
+            rend = time.time()
+
+            ## SEND
+            sstart = time.time()
+            rank_from = status.Get_source()
+            comm.send(data, dest=rank_from, tag=WORKTAG)
+            send = time.time()
+
+            if args.v == 1 and data[-1][0] % 1000 == 0:
+                print("sent", data[-1][0], "jobs")
+            if data[-1][0] % 10 == 0:
+                print('master rtime', (rend - rstart)/CHUNK, 'stime', send - sstart, 'waitime', waitend - waitstart)
+        except StopIteration:
+            if len(data) != 0:
+                rank_from = status.Get_source()
+                comm.send(data, dest=rank_from, tag=WORKTAG)
+            break
+
+
     for i in range(1, world_size):
         comm.send([], dest=i, tag=DIETAG)
     comm.Barrier()
@@ -94,30 +114,30 @@ def slave():
     poss = comm.recv(source=0, tag=WORKTAG)
 
     while True:
-        pos, smiles, ligand_name = poss
-        try:
-            with timeout(seconds=120):
-                dstart = time.time()
+        for (pos, smiles, ligand_name) in poss:
+            try:
+                with timeout(seconds=120):
+                    dstart = time.time()
 
-                score, res, ligand = interface_functions.RunDocking_conf(smiles,
-                                                                         dock_obj=docker,
-                                                                         pos=pos,
-                                                                         name=ligand_name,
-                                                                         target_name=pdb_name,
-                                                                         force_flipper=force_flipper)
-                dend = time.time()
+                    score, res, ligand = interface_functions.RunDocking_conf(smiles,
+                                                                             dock_obj=docker,
+                                                                             pos=pos,
+                                                                             name=ligand_name,
+                                                                             target_name=pdb_name,
+                                                                             force_flipper=force_flipper)
+                    dend = time.time()
 
-                if args.v == 2:
-                    print("RANK {}:".format(rank), res, end='')
-                if ofs and ligand is not None:
-                    wstart = time.time()
-                    oechem.OEWriteMolecule(ofs, ligand)
-                    wend = time.time()
-                if rank % 20 == 0:
-                    print("rank {} dtime".format(rank), dend - dstart, "wtime", wend - wstart)
-        except TimeoutError:
-            print("TIMEOUT", smiles, ligand_name)
-            continue
+                    if args.v == 2:
+                        print("RANK {}:".format(rank), res, end='')
+                    if ofs and ligand is not None:
+                        wstart = time.time()
+                        oechem.OEWriteMolecule(ofs, ligand)
+                        wend = time.time()
+                    if rank % 20 == 0:
+                        print("rank {} dtime".format(rank), dend - dstart, "wtime", wend - wstart)
+            except TimeoutError:
+                print("TIMEOUT", smiles, ligand_name)
+                continue
 
         wstart = time.time()
         comm.send([], dest=0, tag=WORKTAG)
