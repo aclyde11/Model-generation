@@ -37,9 +37,10 @@ def getargs():
     parser.add_argument("-i", help='input csv for smiles', required=True, type=str)
     parser.add_argument("-o", help='output file for data', required=True, type=str)
     parser.add_argument("-r", help='receptor file', required=True, type=str)
-    parser.add_argument('-v', help='verbose', action='store_true')
+    parser.add_argument('-v', help='verbose (1 print every 1000, 2 print every thing)', type=int, choices=[0,1,2], default=1)
     parser.add_argument("-n", type=int, default=1)
     parser.add_argument("-l", type=str, default=None, required=False)
+
     return parser.parse_args()
 
 
@@ -70,6 +71,9 @@ def master():
         rank_from = status.Get_source()
         data = (pos, smiles, ligand_name)
         comm.send(data, dest=rank_from, tag=WORKTAG)
+        
+        if args.v == 1 and pos % 1000 == 0:
+            print("sent", pos, "jobs")
 
     for i in range(1, world_size):
         comm.send([], dest=i, tag=DIETAG)
@@ -86,7 +90,7 @@ def slave():
     while True:
         pos, smiles, ligand_name = poss
         try:
-            with timeout(seconds=60):
+            with timeout(seconds=120):
                 score, res, ligand = interface_functions.RunDocking_conf(smiles,
                                                                          dock_obj=docker,
                                                                          pos=pos,
@@ -94,7 +98,7 @@ def slave():
                                                                          target_name=pdb_name,
                                                                          force_flipper=force_flipper)
 
-                if args.v:
+                if args.v == 2:
                     print("RANK {}:".format(rank), res, end='')
                 if ofs and ligand is not None:
                     oechem.OEWriteMolecule(ofs, ligand)
@@ -124,7 +128,7 @@ if __name__ == '__main__':
 
     use_hybrid = True
     force_flipper = False
-    high_resolution = True
+    high_resolution = False
     ofs = oechem.oemolostream(output_poses)
 
     if rank == 0:
