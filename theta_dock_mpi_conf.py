@@ -6,7 +6,8 @@ from mpi4py import MPI
 from openeye import oechem
 import concurrent.futures
 from impress_md import interface_functions
-
+import queue
+import threading
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
 world_size = comm.Get_size()
@@ -55,35 +56,61 @@ def get_smiles_col(col_names):
 def get_ligand_name_col(col_names):
     return int(np.where(['id' in s.lower() or 'title' in s.lower() or "name" in s.lower() for s in col_names])[0][0])
 
-
-def master():
+def loader(fname, queue, done, lim=128):
     mol = oechem.OEMol()
 
-    ifs = oechem.oemolistream(input_smiles_file)
+    ifs = oechem.oemolistream(fname)
     ifs.SetConfTest(oechem.OEAbsCanonicalConfTest())
-
-    rstart = time.time()
-    senddata = []
-
     iterator = iter(enumerate(ifs.GetOEMols()))
 
     while True:
+        data = []
+
         try:
+            for _ in range(CHUNK):
+                pos, mol = next(iterator)
+                smiles = oechem.OEMol(mol)
+                ligand_name = smiles.GetTitle()
+                data.append((pos, smiles, ligand_name))
+            queue.put(data)
+
+            fors =0
+            while queue.qsize() > lim:
+                time.sleep(0.5)
+                fors += 1
+                if fors > 5 * 60 * 2:
+                    break
+        except StopIteration:
+            if len(data) > 0:
+                queue.put(data)
+            break
+    done.set()
+    ifs.close()
+
+def master():
+
+    q = queue.Queue()
+    done = threading.Event()
+    done.clear()
+
+    t = threading.Thread(target=loader, kwargs={'fname' : input_smiles_file, 'queue' : q, 'done' : done})
+    t.start()
+
+    while not done.is_set() or not q.empty():
             #wait until asked
             status = MPI.Status()
             waitstart = time.time()
             comm.recv(source=MPI.ANY_SOURCE, tag=WORKTAG, status=status)
             waitend = time.time()
 
-            data = []
             rstart = time.time()
-            for _ in range(CHUNK):
-                pos,mol = next(iterator)
-                smiles = oechem.OEMol(mol)
-                ligand_name = smiles.GetTitle()
-                data.append((pos, smiles, ligand_name))
+            if not q.empty():
+                data = q.get()
+            else:
+                break
             rend = time.time()
             pos = data[0][0]
+
             ## SEND
             sstart = time.time()
             rank_from = status.Get_source()
@@ -94,21 +121,15 @@ def master():
                 print("sent", pos, "jobs")
             if pos % 10 == 0:
                 print('master rtime', (rend - rstart)/CHUNK, 'stime', send - sstart, 'waitime', waitend - waitstart)
-        except StopIteration:
-            if len(data) != 0:
-                rank_from = status.Get_source()
-                comm.send(data, dest=rank_from, tag=WORKTAG)
-            break
-
-
     for i in range(1, world_size):
         comm.send([], dest=i, tag=DIETAG)
+    t.join()
+
     comm.Barrier()
 
 
 def slave():
-    docker, receptor = interface_functions.get_receptor(target_file, use_hybrid=use_hybrid,
-                                                        high_resolution=high_resolution)
+    dockers = [interface_functions.get_receptor(target_file, use_hybrid=use_hybrid,high_resolution=high_resolution) for _ in range(CHUNK)]
 
     comm.send([], dest=0, tag=11)
     poss = comm.recv(source=0, tag=WORKTAG)
@@ -117,11 +138,11 @@ def slave():
         with concurrent.futures.ThreadPoolExecutor(max_workers=WORKERS) as executor:
             # Start the load operations and mark each future with its URL
             future_to_url = {executor.submit(interface_functions.RunDocking_conf, smiles,
-                                                                     dock_obj=docker,
+                                                                     dock_obj=dockers[i],
                                                                      pos=pos,
                                                                      name=ligand_name,
                                                                      target_name=pdb_name,
-                                                                     force_flipper=force_flipper): (pos, smiles, ligand_name) for (pos, smiles, ligand_name) in poss}
+                                                                     force_flipper=force_flipper): (pos, smiles, ligand_name) for i, (pos, smiles, ligand_name) in enumerate(poss)}
             try:
                 dstart = time.time()
                 for future in concurrent.futures.as_completed(future_to_url, timeout=60*4):
