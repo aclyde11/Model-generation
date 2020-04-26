@@ -117,11 +117,14 @@ def slave():
         except TimeoutError:
             print("TIMEOUT", smiles, ligand_name)
             continue
+
+        wstart = time.time()
         comm.send([], dest=0, tag=WORKTAG)
-
         status = MPI.Status()
-
         poss = comm.recv(source=0, tag=MPI.ANY_TAG, status=status)
+        wend = time.time()
+        print("rank {} dtime".format(rank), "waittime", wend - wstart)
+
         if status.Get_tag() == DIETAG:
             break
 
