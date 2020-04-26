@@ -15,8 +15,7 @@ import time
 import signal
 
 WORKTAG, DIETAG = 11, 13
-WORKERS=2
-CHUNK=4
+
 class timeout:
     def __init__(self, seconds=1, error_message='Timeout'):
         self.seconds = seconds
@@ -41,7 +40,9 @@ def getargs():
     parser.add_argument('-v', help='verbose (1 print every 1000, 2 print every thing)', type=int, choices=[0,1,2], default=1)
     parser.add_argument("-n", type=int, default=1)
     parser.add_argument("-l", type=str, default=None, required=False)
-
+    parser.add_argument("-w", type=int, default=2, required=False)
+    parser.add_argument('-c', type=int, default=4, required=False)
+    parser.add_argument('--queue_lim', type=int, default=120, required=False)
     return parser.parse_args()
 
 
@@ -56,7 +57,7 @@ def get_smiles_col(col_names):
 def get_ligand_name_col(col_names):
     return int(np.where(['id' in s.lower() or 'title' in s.lower() or "name" in s.lower() for s in col_names])[0][0])
 
-def loader(fname, queue, done, lim=128):
+def loader(fname, queue, done, lim):
     mol = oechem.OEMol()
 
     ifs = oechem.oemolistream(fname)
@@ -88,12 +89,12 @@ def loader(fname, queue, done, lim=128):
     ifs.close()
 
 def master():
-
+    lim = args.queue_lim
     q = queue.Queue()
     done = threading.Event()
     done.clear()
 
-    t = threading.Thread(target=loader, kwargs={'fname' : input_smiles_file, 'queue' : q, 'done' : done})
+    t = threading.Thread(target=loader, kwargs={'fname' : input_smiles_file, 'queue' : q, 'done' : done, 'lim' : lim})
     t.start()
 
     while not done.is_set() or not q.empty():
@@ -161,8 +162,7 @@ def slave():
                             print("rank {} dtime".format(rank), dend - dstart, "wtime", wend - wstart)
                     except Exception as exc:
                         print('%r generated an exception: %s' % (smiles, exc))
-                    else:
-                        print('%r page is %d bytes' % (smiles, len(d)))
+
                     dstart = time.time()
             except concurrent.futures.TimeoutError:
                 print("Rank {} TIMEOUT".format(rank))
@@ -184,6 +184,8 @@ def slave():
 
 if __name__ == '__main__':
     args = getargs()
+    WORKERS = args.w
+    CHUNK = args.c
     input_smiles_file = args.i
     target_file = args.r  # twenty of these
     basename, file_ending = ".".join(args.o.split(".")[:-1]), args.o.split(".")[-1]
