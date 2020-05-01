@@ -11,8 +11,9 @@ def FromMol(mol, use_flipper=True, num_sterocenters=12, force_flipper=False):
         num_enantiomers is the allowable number of enantiomers. For all, set to -1
     """
     omegaOpts = oeomega.OEOmegaOptions()
-    omegaOpts.SetMaxConfRange("200,800")
-    omegaOpts.SetRangeIncrement(8)
+    omegaOpts.SetMaxConfRange("5,50")
+    omegaOpts.SetMaxConfs(50)
+    # omegaOpts.SetRangeIncrement(8)
     omegaOpts.SetMaxSearchTime(30)
     omega = oeomega.OEOmega(omegaOpts)
 
@@ -30,7 +31,7 @@ def FromMol(mol, use_flipper=True, num_sterocenters=12, force_flipper=False):
     return out_conf
 
 
-def FromString(smiles, use_flipper=True, force_flipper=False, num_sterocenters=4):
+def FromString(smiles, use_flipper=False, force_flipper=False, num_sterocenters=3):
     """
     Generates an set of conformers from a SMILES string
     """
