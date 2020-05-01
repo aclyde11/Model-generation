@@ -73,7 +73,7 @@ def master():
         comm.send(data, dest=rank_from, tag=WORKTAG)
         
         if args.v == 1 and pos % 1000 == 0:
-            print("sent", pos, "jobs")
+            print("sent", pos, "jobs", flush=True)
 
     for i in range(1, world_size):
         comm.send([], dest=i, tag=DIETAG)
@@ -99,7 +99,7 @@ def slave():
                                                                          force_flipper=force_flipper)
 
                 if args.v == 2:
-                    print("RANK {}:".format(rank), res, end='')
+                    print("RANK {}:".format(rank), res, end='', flush=True)
                 if ofs and ligand is not None:
                     oechem.OEWriteMolecule(ofs, ligand)
         except TimeoutError:
