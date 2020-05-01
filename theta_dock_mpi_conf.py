@@ -128,7 +128,7 @@ if __name__ == '__main__':
 
     use_hybrid = True
     force_flipper = False
-    high_resolution = False
+    high_resolution = True
     ofs = oechem.oemolostream(output_poses)
 
     if rank == 0:
