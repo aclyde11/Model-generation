@@ -87,11 +87,11 @@ def slave():
                                                                          force_flipper=force_flipper)
 
                     if args.v:
-                        print("RANK {}:".format(rank), res, end='')
+                        print("RANK {}:".format(rank), res, end='', flush=True)
                     if ofs and ligand is not None:
                         oechem.OEWriteMolecule(ofs, ligand)
             except TimeoutError:
-                print("TIMEOUT", smiles, ligand_name)
+                print("TIMEOUT", smiles, ligand_name, flush=True)
                 continue
         comm.send([], dest=0, tag=11)
 
