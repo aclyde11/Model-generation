@@ -145,7 +145,10 @@ def RunDocking_(smiles: str, dock_obj: oedocking.OEDock, pos: int = None, name: 
 
         dockMethod = dock_obj.GetName()
         oedocking.OESetSDScore(ligand_min, dock_obj, dockMethod)
-        # ligand_min.SetTitle(str(name))
+        try:
+            ligand_min.SetTitle(str(name))
+        except TypeError:
+            print("Error with naming things... weird")
     else:
         return None, None, None
 
