@@ -72,8 +72,8 @@ def get_args():
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument('-a', action='store_true')
-    parser.add_argument('-i', default='/Users/austin/Box/2019-nCoV/drug-screening/raw_data/V5_docking_data_apri_24/NSP15/3/NSP15_3_6w01_cat_sorted.sdf')
-    parser.add_argument('-o', default='/Users/austin/Box/2019-nCoV/drug-screening/raw_data/V5_docking_data_apri_24/NSP15/3/NSP15_3_6w01_cat_sorted_top100_rescore.sdf')
+    parser.add_argument('-i', default='/Users/austin/Box/2019-nCoV/drug-screening/raw_data/V5_docking_data_april_24/result_files/NSP15/3/NSP15_3_6w01_cat_sorted.sdf')
+    parser.add_argument('-o', default='/Users/austin/PycharmProjects/Model-generation/NSP15_3_6w01_cat_sorted_top100_rescore.sdf')
     parser.add_argument('-r', default="/Users/austin/Box/2019-nCoV/drug-screening/receptorsV5/NSP15_6w01_apo.pdbqt")
     parser.add_argument('-w', default=14)
     parser.add_argument('-t', default='tmp')

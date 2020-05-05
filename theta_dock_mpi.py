@@ -78,7 +78,7 @@ def slave():
     while True:
         for (pos, smiles, ligand_name) in poss:
             try:
-                with timeout(seconds=60):
+                with timeout(seconds=180):
                     score, res, ligand = interface_functions.RunDocking_(smiles,
                                                                          dock_obj=docker,
                                                                          pos=pos,
